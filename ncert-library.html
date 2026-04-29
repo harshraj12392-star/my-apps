@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NCERT Library</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07080f;--surface:#0e0f1c;--card:#13142a;--card2:#1a1b30;
+  --accent:#e8622a;--gold:#f0b429;--teal:#00d4aa;
+  --text:#f0f0ff;--muted:#7a7b9a;--border:rgba(255,255,255,.07);
+  --glow:rgba(232,98,42,.18);--r:16px;
+}
+[data-light]{
+  --bg:#f4f2ec;--surface:#ebe7dd;--card:#fff;--card2:#f7f4ee;
+  --accent:#d4521e;--gold:#c8960a;--teal:#009e80;
+  --text:#12121e;--muted:#6e6c85;--border:rgba(0,0,0,.08);--glow:rgba(212,82,30,.1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;transition:background .3s,color .3s}
+.orb{position:fixed;border-radius:50%;pointer-events:none;z-index:0}
+.orb1{width:700px;height:700px;background:radial-gradient(circle,rgba(232,98,42,.07),transparent 65%);top:-250px;left:-250px;animation:fl 14s ease-in-out infinite alternate}
+.orb2{width:500px;height:500px;background:radial-gradient(circle,rgba(0,212,170,.05),transparent 65%);bottom:-150px;right:-150px;animation:fl 18s ease-in-out infinite alternate-reverse}
+@keyframes fl{to{transform:translate(50px,40px)}}
+nav{position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:60px;background:rgba(7,8,15,.88);backdrop-filter:blur(18px);border-bottom:1px solid var(--border)}
+[data-light] nav{background:rgba(244,242,236,.92)}
+.logo{font-family:'Cormorant Garamond',serif;font-size:1.45rem;font-weight:700;display:flex;align-items:center;gap:9px}
+.logo-box{width:34px;height:34px;background:linear-gradient(135deg,var(--accent),#c44d1a);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1rem;box-shadow:0 0 18px var(--glow)}
+.logo em{color:var(--accent);font-style:normal}
+.nav-r{display:flex;gap:7px;align-items:center}
+.pill{display:flex;background:var(--card);border:1px solid var(--border);border-radius:9px;overflow:hidden}
+.pb{background:none;border:none;color:var(--muted);padding:6px 13px;cursor:pointer;font:600 .78rem 'Outfit',sans-serif;transition:all .2s}
+.pb.on{background:var(--accent);color:#fff}
+.ib{background:var(--card);border:1px solid var(--border);color:var(--text);width:36px;height:36px;border-radius:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.95rem;transition:all .2s}
+.ib:hover{background:var(--accent);border-color:var(--accent);color:#fff}
+.hero{position:relative;z-index:1;padding:44px 24px 28px;text-align:center}
+.hero h1{font-family:'Cormorant Garamond',serif;font-size:clamp(2rem,6vw,3.4rem);font-weight:700;line-height:1.1;margin-bottom:10px}
+.gr{background:linear-gradient(135deg,var(--accent),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero p{color:var(--muted);font-size:.95rem;max-width:440px;margin:0 auto 22px}
+.stats{display:flex;gap:28px;justify-content:center;flex-wrap:wrap}
+.stat-n{font-family:'Cormorant Garamond',serif;font-size:1.9rem;font-weight:700;color:var(--accent);line-height:1}
+.stat-l{font-size:.7rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.status{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:7px;font-size:.77rem;color:var(--muted);margin-bottom:22px}
+.dot{width:7px;height:7px;border-radius:50%;background:#4ade80;flex-shrink:0}
+.dot.off{background:#f87171}
+.sw{position:relative;z-index:1;max-width:520px;margin:0 auto;padding:0 20px 22px}
+.sw input{width:100%;background:var(--card);border:1.5px solid var(--border);border-radius:13px;padding:13px 18px 13px 46px;color:var(--text);font:400 .93rem 'Outfit',sans-serif;outline:none;transition:border .2s,box-shadow .2s}
+.sw input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+.sw input::placeholder{color:var(--muted)}
+.sw svg{position:absolute;left:34px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--muted)}
+.tabs{position:relative;z-index:1;display:flex;gap:7px;overflow-x:auto;padding:0 24px 18px;scrollbar-width:none;justify-content:center}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex-shrink:0;background:var(--card);border:1.5px solid var(--border);border-radius:50px;padding:8px 20px;cursor:pointer;font:600 .83rem 'Outfit',sans-serif;color:var(--muted);transition:all .2s;white-space:nowrap}
+.tab.on{background:linear-gradient(135deg,var(--accent),#c44d1a);color:#fff;border-color:transparent;box-shadow:0 4px 18px rgba(232,98,42,.35)}
+.tab:hover:not(.on){border-color:var(--accent);color:var(--accent)}
+.subs{position:relative;z-index:1;display:flex;gap:6px;overflow-x:auto;padding:0 24px 22px;scrollbar-width:none}
+.subs::-webkit-scrollbar{display:none}
+.sc{flex-shrink:0;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:5px 13px;cursor:pointer;font:600 .72rem 'Outfit',sans-serif;color:var(--muted);transition:all .2s;white-space:nowrap}
+.sc.on{border-color:var(--teal);color:var(--teal);background:rgba(0,212,170,.09)}
+.sc:hover:not(.on){color:var(--text);border-color:var(--muted)}
+.sh{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;padding:0 24px 14px}
+.sh-title{font-family:'Cormorant Garamond',serif;font-size:1.35rem;font-weight:700}
+.badge{background:var(--accent);color:#fff;padding:3px 11px;border-radius:20px;font:600 .73rem 'Outfit',sans-serif}
+.grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px;padding:0 24px 48px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;box-shadow:0 4px 20px rgba(0,0,0,.28);animation:up .38s ease both;transition:transform .25s,box-shadow .25s,border-color .25s}
+.card:hover{transform:translateY(-5px);box-shadow:0 18px 44px rgba(0,0,0,.45);border-color:var(--accent)}
+@keyframes up{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+.cover{height:130px;display:flex;align-items:center;justify-content:center;font-size:3rem;position:relative;flex-shrink:0}
+.cls-tag{position:absolute;top:9px;right:9px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);color:#fff;font:700 .62rem 'Outfit',sans-serif;padding:3px 7px;border-radius:5px}
+.info{padding:11px 13px;flex:1}
+.sub-lbl{font:700 .67rem 'Outfit',sans-serif;color:var(--accent);text-transform:uppercase;letter-spacing:.5px}
+.bk-title{font:500 .85rem 'Outfit',sans-serif;color:var(--text);margin-top:3px;line-height:1.3}
+.bk-cls{font:400 .7rem 'Outfit',sans-serif;color:var(--muted);margin-top:4px}
+.cbtns{display:flex;gap:6px;padding:0 11px 11px}
+.bdl,.bvw{flex:1;border:none;border-radius:8px;padding:8px 4px;cursor:pointer;font:600 .73rem 'Outfit',sans-serif;transition:opacity .2s,transform .12s;display:flex;align-items:center;justify-content:center;gap:4px}
+.bdl{background:var(--accent);color:#fff}
+.bvw{background:var(--card2);color:var(--text);border:1px solid var(--border)}
+.bdl:hover,.bvw:hover{opacity:.82;transform:scale(.96)}
+/* MODAL */
+.ov{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.94);backdrop-filter:blur(12px);flex-direction:column;animation:fi .22s ease}
+.ov.open{display:flex}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+.mh{background:var(--surface);padding:14px 22px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0;gap:12px}
+.mhi{flex:1;min-width:0}
+.mh-title{font-family:'Cormorant Garamond',serif;font-size:1.15rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mh-sub{font-size:.76rem;color:var(--muted);margin-top:2px}
+.mh-btns{display:flex;gap:7px;flex-shrink:0}
+.mbody{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.pv-wrap{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:14px;overflow:auto}
+.pv-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:30px 32px;text-align:center;max-width:400px;width:100%}
+.pv-icon{font-size:3.5rem;margin-bottom:14px;display:block}
+.pv-card h3{font-family:'Cormorant Garamond',serif;font-size:1.4rem;margin-bottom:8px}
+.pv-card p{color:var(--muted);font-size:.85rem;line-height:1.65;margin-bottom:20px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.btn-a{background:linear-gradient(135deg,var(--accent),#c44d1a);color:#fff;border:none;padding:12px 22px;border-radius:10px;font:600 .87rem 'Outfit',sans-serif;cursor:pointer;transition:opacity .2s;text-decoration:none;display:inline-flex;align-items:center;gap:6px;box-shadow:0 4px 16px rgba(232,98,42,.35)}
+.btn-a:hover{opacity:.85}
+.btn-b{background:var(--card2);color:var(--text);border:1px solid var(--border);padding:11px 20px;border-radius:10px;font:600 .85rem 'Outfit',sans-serif;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.btn-b:hover{border-color:var(--accent);color:var(--accent)}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(70px);background:var(--card2);border:1px solid var(--border);color:var(--text);padding:11px 22px;border-radius:11px;font:500 .83rem 'Outfit',sans-serif;z-index:300;transition:transform .3s;white-space:nowrap;box-shadow:0 8px 28px rgba(0,0,0,.4)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.empty{grid-column:1/-1;text-align:center;padding:50px 20px;color:var(--muted)}
+.empty span{font-size:2.8rem;display:block;margin-bottom:10px}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+@media(max-width:500px){
+  .grid{grid-template-columns:repeat(2,1fr);gap:11px;padding:0 14px 36px}
+  .tabs,.subs{padding-left:14px;padding-right:14px}
+  nav,.sh{padding-left:14px;padding-right:14px}
+  .sw{padding-left:14px;padding-right:14px}
+  .hero{padding:32px 14px 20px}
+}
+</style>
+</head>
+<body>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<nav>
+  <div class="logo"><div class="logo-box">📚</div>NCERT <em>Library</em></div>
+  <div class="nav-r">
+    <div class="pill">
+      <button class="pb on" id="btn-en" onclick="setLang('en')">EN</button>
+      <button class="pb" id="btn-hi" onclick="setLang('hi')">हिं</button>
+    </div>
+    <button class="ib" id="thm" onclick="toggleTheme()">🌙</button>
+  </div>
+</nav>
+
+<div class="hero">
+  <h1>Your Complete<br><span class="gr">NCERT Library</span></h1>
+  <p>All textbooks Class 6–10, English &amp; Hindi. Open in browser or download to read offline.</p>
+  <div class="stats">
+    <div><div class="stat-n">5</div><div class="stat-l">Classes</div></div>
+    <div><div class="stat-n">41</div><div class="stat-l">Books</div></div>
+    <div><div class="stat-n">9</div><div class="stat-l">Subjects</div></div>
+    <div><div class="stat-n">2</div><div class="stat-l">Languages</div></div>
+  </div>
+</div>
+
+<div class="status"><div class="dot" id="dot"></div><span id="stxt">Checking connection…</span></div>
+
+<div class="sw">
+  <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+  <input id="srch" type="text" placeholder="Search books, class, subject…" oninput="render()">
+</div>
+
+<div class="tabs" id="tabs"></div>
+<div class="subs" id="subs"></div>
+<div class="sh"><div class="sh-title" id="shtitle">All Books</div><div class="badge" id="badge">0</div></div>
+<div class="grid" id="grid"></div>
+
+<div class="ov" id="modal">
+  <div class="mh">
+    <div class="mhi">
+      <div class="mh-title" id="mt"></div>
+      <div class="mh-sub" id="ms"></div>
+    </div>
+    <div class="mh-btns">
+      <button class="ib" id="m-dl" title="Download">⬇</button>
+      <button class="ib" onclick="closeModal()">✕</button>
+    </div>
+  </div>
+  <div class="mbody" id="mbody"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var DB=[
+  [6,'Mathematics','Mathematics','गणित','📐','#1e3a5f','femh1'],
+  [6,'Science','Science','विज्ञान','🔬','#0f4c35','fesc1'],
+  [6,'History','Our Pasts I','हमारे अतीत I','🏛️','#4a1942','fess1'],
+  [6,'Geography','The Earth Our Habitat','पृथ्वी हमारा आवास','🌍','#0c3d5e','fesg1'],
+  [6,'Civics','Social & Political Life I','सामाजिक एवं राजनीतिक जीवन I','⚖️','#3d2400','fessp1'],
+  [6,'English','Honeysuckle','Honeysuckle (English)','📖','#2d1b4e','feeh1'],
+  [6,'Hindi','Vasant I','वसंत I','📚','#3d1500','fehl1'],
+  [6,'Sanskrit','Ruchira I','रुचिरा I','🕉️','#0f3d2e','fesl1'],
+  [7,'Mathematics','Mathematics','गणित','📐','#1e3a5f','gemh1'],
+  [7,'Science','Science','विज्ञान','🔬','#0f4c35','gesc1'],
+  [7,'History','Our Pasts II','हमारे अतीत II','🏛️','#4a1942','gess1'],
+  [7,'Geography','Our Environment','हमारा पर्यावरण','🌍','#0c3d5e','gesg1'],
+  [7,'Civics','Social & Political Life II','सामाजिक एवं राजनीतिक जीवन II','⚖️','#3d2400','gessp1'],
+  [7,'English','Honeycomb','Honeycomb (English)','📖','#2d1b4e','geeh1'],
+  [7,'Hindi','Vasant II','वसंत II','📚','#3d1500','gehl1'],
+  [7,'Sanskrit','Ruchira II','रुचिरा II','🕉️','#0f3d2e','gesl1'],
+  [8,'Mathematics','Mathematics','गणित','📐','#1e3a5f','hemh1'],
+  [8,'Science','Science','विज्ञान','🔬','#0f4c35','hesc1'],
+  [8,'History','Our Pasts III','हमारे अतीत III','🏛️','#4a1942','hess1'],
+  [8,'Geography','Resources & Development','संसाधन एवं विकास','🌍','#0c3d5e','hesg1'],
+  [8,'Civics','Social & Political Life III','सामाजिक एवं राजनीतिक जीवन III','⚖️','#3d2400','hessp1'],
+  [8,'English','Honeydew','Honeydew (English)','📖','#2d1b4e','heeh1'],
+  [8,'Hindi','Vasant III','वसंत III','📚','#3d1500','hehl1'],
+  [8,'Sanskrit','Ruchira III','रुचिरा III','🕉️','#0f3d2e','hesl1'],
+  [9,'Mathematics','Mathematics','गणित','📐','#1e3a5f','iemh1'],
+  [9,'Science','Science','विज्ञान','🔬','#0f4c35','iesc1'],
+  [9,'History','India & Contemporary World I','भारत और समकालीन विश्व I','🏛️','#4a1942','iess1'],
+  [9,'Geography','Contemporary India I','समकालीन भारत I','🌍','#0c3d5e','iesg1'],
+  [9,'Civics','Democratic Politics I','लोकतांत्रिक राजनीति I','⚖️','#3d2400','iessp1'],
+  [9,'Economics','Economics','अर्थशास्त्र','💰','#0f3d1e','iess2'],
+  [9,'English','Beehive','Beehive (English)','📖','#2d1b4e','ieeh1'],
+  [9,'Hindi','Kshitij I','क्षितिज I','📚','#3d1500','iehl1'],
+  [9,'Sanskrit','Shemushi I','शेमुषी I','🕉️','#0f3d2e','iesl1'],
+  [10,'Mathematics','Mathematics','गणित','📐','#1e3a5f','jemh1'],
+  [10,'Science','Science','विज्ञान','🔬','#0f4c35','jesc1'],
+  [10,'History','India & Contemporary World II','भारत और समकालीन विश्व II','🏛️','#4a1942','jess1'],
+  [10,'Geography','Contemporary India II','समकालीन भारत II','🌍','#0c3d5e','jesg1'],
+  [10,'Civics','Democratic Politics II','लोकतांत्रिक राजनीति II','⚖️','#3d2400','jessp1'],
+  [10,'Economics','Understanding Economic Development','आर्थिक विकास की समझ','💰','#0f3d1e','jess2'],
+  [10,'English','First Flight','First Flight (English)','📖','#2d1b4e','jeeh1'],
+  [10,'Hindi','Kshitij II','क्षितिज II','📚','#3d1500','jehl1'],
+  [10,'Sanskrit','Shemushi II','शेमुषी II','🕉️','#0f3d2e','jesl1']
+];
+
+var SUBJECTS=[...new Set(DB.map(function(b){return b[1]}))];
+var cls='all',sub='all',lang='en',dark=true;
+
+function pdfUrl(f){return'https://ncert.nic.in/textbook/pdf/'+f+'.pdf';}
+
+function init(){buildTabs();buildSubs();render();checkNet();window.addEventListener('online',checkNet);window.addEventListener('offline',checkNet);}
+
+function checkNet(){
+  var on=navigator.onLine;
+  document.getElementById('dot').className='dot'+(on?'':' off');
+  document.getElementById('stxt').textContent=on?'Online — PDFs load from NCERT servers':'Offline — Connect to internet to view books';
+}
+
+function buildTabs(){
+  document.getElementById('tabs').innerHTML=['all',6,7,8,9,10].map(function(c){
+    return '<button class="tab'+(c===cls?' on':'')+'" onclick="setCls(\''+c+'\')">'+(c==='all'?'All Classes':'Class '+c)+'</button>';
+  }).join('');
+}
+
+function buildSubs(){
+  document.getElementById('subs').innerHTML=[['all','All Subjects']].concat(SUBJECTS.map(function(s){return[s,s];})).map(function(p){
+    return '<button class="sc'+(p[0]===sub?' on':'')+'" onclick="setSub(\''+p[0]+'\')">'+p[1]+'</button>';
+  }).join('');
+}
+
+function setCls(c){cls=c==='all'?'all':+c;buildTabs();render();}
+function setSub(s){sub=s;buildSubs();render();}
+
+function setLang(l){
+  lang=l;
+  document.getElementById('btn-en').className='pb'+(l==='en'?' on':'');
+  document.getElementById('btn-hi').className='pb'+(l==='hi'?' on':'');
+  render();
+}
+
+function toggleTheme(){
+  dark=!dark;
+  if(dark){document.documentElement.removeAttribute('data-light');}
+  else{document.documentElement.setAttribute('data-light','');}
+  document.getElementById('thm').textContent=dark?'🌙':'☀️';
+}
+
+function render(){
+  var q=document.getElementById('srch').value.toLowerCase();
+  var books=DB.filter(function(b){
+    if(cls!=='all'&&b[0]!==cls)return false;
+    if(sub!=='all'&&b[1]!==sub)return false;
+    if(q&&!(b[2].toLowerCase().includes(q)||b[3].includes(q)||b[1].toLowerCase().includes(q)||String(b[0]).includes(q)))return false;
+    return true;
+  });
+  document.getElementById('badge').textContent=books.length;
+  document.getElementById('shtitle').textContent=cls==='all'?'All Books':'Class '+cls+' Books';
+  var grid=document.getElementById('grid');
+  if(!books.length){
+    grid.innerHTML='<div class="empty"><span>📭</span><p>No books found.</p></div>';return;
+  }
+  grid.innerHTML=books.map(function(b,i){
+    var title=lang==='en'?b[2]:b[3];
+    var safe=title.replace(/'/g,"\\'").replace(/&/g,'and');
+    var en2=b[2].replace(/'/g,"\\'").replace(/&/g,'and');
+    return '<div class="card" style="animation-delay:'+i*.04+'s">'
+      +'<div class="cover" style="background:'+b[5]+'">'
+      +'<span>'+b[4]+'</span>'
+      +'<span class="cls-tag">Class '+b[0]+'</span>'
+      +'</div>'
+      +'<div class="info">'
+      +'<div class="sub-lbl">'+b[1]+'</div>'
+      +'<div class="bk-title">'+title+'</div>'
+      +'<div class="bk-cls">Class '+b[0]+' · NCERT</div>'
+      +'</div>'
+      +'<div class="cbtns">'
+      +'<button class="bdl" onclick="dlBook(\''+b[6]+'\',\''+safe+'\')">⬇ Save PDF</button>'
+      +'<button class="bvw" onclick="viewBook('+b[0]+',\''+b[1]+'\',\''+en2+'\',\''+safe+'\',\''+b[4]+'\',\''+b[6]+'\')">👁 View</button>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function viewBook(c,subject,en,title,icon,f){
+  document.getElementById('mt').textContent=title;
+  document.getElementById('ms').textContent='Class '+c+' · '+subject;
+  document.getElementById('m-dl').onclick=function(){dlBook(f,title);};
+  document.getElementById('modal').classList.add('open');
+  var url=pdfUrl(f);
+  var body=document.getElementById('mbody');
+  if(!navigator.onLine){
+    body.innerHTML='<div class="pv-wrap"><div class="pv-card"><span class="pv-icon">📡</span><h3>No Internet</h3><p>Connect to internet to view this book.</p></div></div>';
+    return;
+  }
+  body.innerHTML='<div class="pv-wrap">'
+    +'<div class="pv-card">'
+    +'<span class="pv-icon">'+icon+'</span>'
+    +'<h3>'+title+'</h3>'
+    +'<p>Class '+c+' · '+subject+'<br><br>Click below to open or download this NCERT book:</p>'
+    +'<div class="btn-row">'
+    +'<a href="'+url+'" target="_blank" class="btn-a">🌐 Open PDF in Browser</a>'
+    +'<button class="btn-b" onclick="dlBook(\''+f+'\',\''+title.replace(/'/g,"\\'").replace(/&/g,'and')+'\')">⬇ Download PDF</button>'
+    +'</div>'
+    +'<p style="margin-top:14px;font-size:.74rem;color:var(--muted)">Opens directly from NCERT official servers</p>'
+    +'</div></div>';
+}
+
+function dlBook(f,title){
+  if(!navigator.onLine){toast('❌ No internet connection');return;}
+  var url=pdfUrl(f);
+  var a=document.createElement('a');
+  a.href=url;
+  a.target='_blank';
+  a.download=title+'.pdf';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  toast('⬇ Opening '+title+'…');
+}
+
+function closeModal(){
+  document.getElementById('modal').classList.remove('open');
+  document.getElementById('mbody').innerHTML='';
+}
+
+function toast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._t);
+  t._t=setTimeout(function(){t.classList.remove('show');},3000);
+}
+
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal();});
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ZenSpace — Your Mind, Organized</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body,#root{height:100%;overflow:hidden;}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:4px;}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.3);}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback}=React;
+
+// ── Storage ──
+const STORAGE_KEY="zenspace_v2";
+const loadData=()=>{try{const r=localStorage.getItem(STORAGE_KEY);return r?JSON.parse(r):null;}catch{return null;}};
+const saveData=d=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}catch{}};
+
+// ── Defaults ──
+const defaultData=()=>({
+  notebooks:[
+    {id:"nb1",name:"Personal",color:"#a78bfa",pages:[{id:"p1",title:"Welcome to ZenSpace",content:"# Welcome!\nThis is your **personal workspace**.\n\n- Take notes\n- Plan your day\n- Stay focused\n\n> Start by exploring the sidebar.",tags:["intro"],createdAt:Date.now(),updatedAt:Date.now()}]},
+    {id:"nb2",name:"Work",color:"#34d399",pages:[{id:"p2",title:"Meeting Notes",content:"# Meeting Notes\n\nDate: Today\n\n## Agenda\n1. Project updates\n2. Blockers\n3. Next steps",tags:["work"],createdAt:Date.now(),updatedAt:Date.now()}]}
+  ],
+  todos:[
+    {id:"t1",text:"Set up ZenSpace",done:true,priority:"high",dueDate:null,subtasks:[],category:"Personal",createdAt:Date.now()},
+    {id:"t2",text:"Explore all features",done:false,priority:"medium",dueDate:null,subtasks:[{id:"st1",text:"Try the Focus Timer",done:false},{id:"st2",text:"Add a note",done:false}],category:"Personal",createdAt:Date.now()}
+  ],
+  calendarEvents:[{id:"ev1",title:"Team Standup",date:new Date().toISOString().slice(0,10),time:"10:00",color:"#34d399",category:"Work",notes:"Daily sync",recurring:"daily"}],
+  habits:[
+    {id:"h1",name:"Drink 2L Water",emoji:"💧",color:"#60a5fa",completions:{}},
+    {id:"h2",name:"Read 20 mins",emoji:"📚",color:"#f472b6",completions:{}},
+    {id:"h3",name:"Exercise",emoji:"🏃",color:"#34d399",completions:{}}
+  ],
+  pomodoroHistory:[],moodLog:[],
+  finance:{transactions:[],budget:50000},
+  readingList:[],goals:[],flashcards:[],
+  settings:{theme:"dark",font:"Outfit",bgImage:null,accentColor:"#a78bfa",density:"comfortable",customCSS:"",colorScheme:"default",accessibilityMode:false,sidebarColor:"dark"},
+  pinnedItems:[],recentFiles:[]
+});
+
+const uid=()=>Math.random().toString(36).slice(2,10);
+const todayStr=()=>new Date().toISOString().slice(0,10);
+const formatDate=d=>new Date(d).toLocaleDateString("en-IN",{day:"numeric",month:"short"});
+
+const SCHEMES={
+  default:{bg:"#0f0f13",surface:"#16161e",border:"rgba(255,255,255,.06)",text:"#e2e2f0",muted:"#6b6b8a"},
+  nord:{bg:"#2e3440",surface:"#3b4252",border:"rgba(255,255,255,.08)",text:"#eceff4",muted:"#4c566a"},
+  dracula:{bg:"#282a36",surface:"#44475a",border:"rgba(255,255,255,.08)",text:"#f8f8f2",muted:"#6272a4"},
+  catppuccin:{bg:"#1e1e2e",surface:"#313244",border:"rgba(255,255,255,.06)",text:"#cdd6f4",muted:"#6c7086"},
+  solarized:{bg:"#002b36",surface:"#073642",border:"rgba(255,255,255,.08)",text:"#839496",muted:"#586e75"},
+  light:{bg:"#f5f4f0",surface:"#ffffff",border:"rgba(0,0,0,.08)",text:"#1a1a2e",muted:"#8888aa"}
+};
+
+const renderMarkdown=text=>{
+  if(!text)return"";
+  return text
+    .replace(/^### (.+)$/gm,'<h3 style="font-size:1.1em;margin:1em 0 .4em;font-weight:700">$1</h3>')
+    .replace(/^## (.+)$/gm,'<h2 style="font-size:1.3em;margin:1.2em 0 .5em;font-weight:700">$1</h2>')
+    .replace(/^# (.+)$/gm,'<h1 style="font-size:1.6em;margin:1.4em 0 .6em;font-weight:800">$1</h1>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/`(.+?)`/g,'<code style="background:rgba(255,255,255,.1);padding:2px 6px;border-radius:4px;font-family:monospace">$1</code>')
+    .replace(/^> (.+)$/gm,'<blockquote style="border-left:3px solid var(--accent);padding-left:1em;margin:.5em 0;opacity:.8">$1</blockquote>')
+    .replace(/^- (.+)$/gm,'<li style="margin:.2em 0;padding-left:.5em">$1</li>')
+    .replace(/\n\n/g,'</p><p style="margin:.6em 0">')
+    .replace(/^(?!<[h1-6ul|li|blockquote|p])(.+)$/gm,'<p style="margin:.4em 0">$1</p>');
+};
+
+// ═══════════════════════════════════════════════════════
+// MAIN APP
+// ═══════════════════════════════════════════════════════
+function App(){
+  const[data,setData]=useState(()=>{
+    const saved=loadData();
+    if(saved)return{...defaultData(),...saved,settings:{...defaultData().settings,...(saved.settings||{})}};
+    return defaultData();
+  });
+  const[activeSection,setActiveSection]=useState("home");
+  const[activeNotebook,setActiveNotebook]=useState(null);
+  const[activePage,setActivePage]=useState(null);
+  const[searchQuery,setSearchQuery]=useState("");
+  const[showAI,setShowAI]=useState(false);
+  const[showSettings,setShowSettings]=useState(false);
+  const[sidebarCollapsed,setSidebarCollapsed]=useState(false);
+  const[cmdPalette,setCmdPalette]=useState(false);
+  const[toast,setToast]=useState(null);
+
+  const update=useCallback(updater=>{
+    setData(prev=>{
+      const next=typeof updater==="function"?updater(prev):{...prev,...updater};
+      saveData(next);
+      return next;
+    });
+  },[]);
+
+  const showToast=(msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),3000);};
+
+  const scheme=SCHEMES[data.settings.colorScheme]||SCHEMES.default;
+  const acc=data.settings.accentColor;
+
+  useEffect(()=>{
+    const handler=e=>{
+      if((e.ctrlKey||e.metaKey)&&e.key==="k"){e.preventDefault();setCmdPalette(v=>!v);}
+      if(e.key==="Escape"){setCmdPalette(false);setShowAI(false);setShowSettings(false);}
+    };
+    window.addEventListener("keydown",handler);
+    return()=>window.removeEventListener("keydown",handler);
+  },[]);
+
+  const navItems=[
+    {id:"home",label:"Home",icon:"⌂"},
+    {id:"notes",label:"Notes",icon:"✦"},
+    {id:"todos",label:"To-Do",icon:"✓"},
+    {id:"calendar",label:"Planner",icon:"◫"},
+    {id:"timer",label:"Focus",icon:"◎"},
+    {id:"habits",label:"Habits",icon:"⬡"},
+    {id:"finance",label:"Finance",icon:"◈"},
+    {id:"reading",label:"Reading",icon:"◻"},
+    {id:"goals",label:"Goals",icon:"◉"},
+    {id:"mood",label:"Mood",icon:"◌"},
+    {id:"flashcards",label:"Cards",icon:"◧"},
+    {id:"whiteboard",label:"Board",icon:"◪"}
+  ];
+
+  const appStyle={
+    display:"flex",height:"100vh",overflow:"hidden",position:"relative",
+    fontFamily:`'${data.settings.font}',sans-serif`,
+    background:scheme.bg,color:scheme.text,
+    fontSize:data.settings.accessibilityMode?"18px":"15px"
+  };
+
+  const sidebarW=sidebarCollapsed?"64px":"240px";
+
+  return(
+    <div style={appStyle}>
+      <style>{`
+        :root{--bg:${scheme.bg};--surface:${scheme.surface};--border:${scheme.border};--text:${scheme.text};--muted:${scheme.muted};--accent:${acc};}
+        .btn{cursor:pointer;border:none;font-family:'${data.settings.font}',sans-serif;transition:all .15s;background:transparent;color:${scheme.text};}
+        .btn-primary{background:${acc};color:#fff;padding:8px 18px;border-radius:8px;font-weight:600;font-size:.85em;}
+        .btn-primary:hover{opacity:.85;transform:translateY(-1px);}
+        .btn-ghost{background:transparent;color:${scheme.text};padding:7px 14px;border-radius:8px;font-size:.85em;}
+        .btn-ghost:hover{background:rgba(255,255,255,.06);}
+        input,textarea,select{font-family:'${data.settings.font}',sans-serif;background:rgba(255,255,255,.05);border:1px solid ${scheme.border};color:${scheme.text};border-radius:8px;padding:8px 12px;outline:none;transition:border .15s;font-size:.9em;}
+        input:focus,textarea:focus,select:focus{border-color:${acc};box-shadow:0 0 0 3px ${acc}25;}
+        select option{background:${scheme.surface};color:${scheme.text};}
+        .fade-in{animation:fadeIn .3s ease;}
+        .slide-in{animation:slideIn .25s cubic-bezier(.4,0,.2,1);}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+        @keyframes slideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+        ${data.settings.customCSS||""}
+      `}</style>
+
+      {data.settings.bgImage&&(
+        <div style={{position:"fixed",inset:0,zIndex:0,backgroundImage:`url(${data.settings.bgImage})`,backgroundSize:"cover",backgroundPosition:"center",opacity:.12,pointerEvents:"none"}}/>
+      )}
+
+      {/* SIDEBAR */}
+      <nav style={{
+        width:sidebarW,minWidth:sidebarW,
+        background:data.settings.sidebarColor==="dark"?"rgba(0,0,0,.5)":scheme.surface,
+        borderRight:`1px solid ${scheme.border}`,
+        display:"flex",flexDirection:"column",
+        transition:"width .25s cubic-bezier(.4,0,.2,1),min-width .25s",
+        overflow:"hidden",backdropFilter:"blur(20px)",zIndex:10,position:"relative"
+      }}>
+        <div style={{padding:"18px 14px 10px",display:"flex",alignItems:"center",gap:10,borderBottom:`1px solid ${scheme.border}`,marginBottom:8}}>
+          {!sidebarCollapsed&&(
+            <div style={{flex:1}}>
+              <div style={{fontWeight:800,fontSize:"1.1em",letterSpacing:"-.03em",background:`linear-gradient(135deg,${acc},${scheme.text})`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>ZenSpace</div>
+              <div style={{fontSize:".65em",color:scheme.muted,marginTop:1}}>Your mind, organized</div>
+            </div>
+          )}
+          {sidebarCollapsed&&<div style={{fontSize:"1.3em",margin:"0 auto",color:acc}}>✦</div>}
+          <button className="btn" onClick={()=>setSidebarCollapsed(v=>!v)} style={{padding:"4px 8px",fontSize:".9em",flexShrink:0,color:scheme.muted,borderRadius:6}}>
+            {sidebarCollapsed?"›":"‹"}
+          </button>
+        </div>
+
+        {!sidebarCollapsed&&(
+          <div style={{padding:"6px 12px"}}>
+            <input placeholder="⌕  Search... (Ctrl+K)" value={searchQuery}
+              onChange={e=>{setSearchQuery(e.target.value);if(e.target.value)setActiveSection("search");}}
+              style={{width:"100%",fontSize:".8em",padding:"7px 10px"}}/>
+          </div>
+        )}
+
+        <div style={{flex:1,overflowY:"auto",padding:"4px 8px"}}>
+          {navItems.map(item=>(
+            <button key={item.id} className="btn"
+              onClick={()=>{setActiveSection(item.id);setSearchQuery("");}}
+              style={{
+                width:"100%",display:"flex",alignItems:"center",gap:10,
+                padding:sidebarCollapsed?"10px":"9px 12px",
+                borderRadius:9,marginBottom:2,fontSize:".88em",
+                justifyContent:sidebarCollapsed?"center":"flex-start",
+                background:activeSection===item.id?`${acc}28`:"transparent",
+                color:activeSection===item.id?acc:scheme.text,
+                fontWeight:activeSection===item.id?600:400
+              }}>
+              <span style={{fontSize:"1.05em",minWidth:18,textAlign:"center"}}>{item.icon}</span>
+              {!sidebarCollapsed&&<span>{item.label}</span>}
+              {!sidebarCollapsed&&activeSection===item.id&&(
+                <span style={{marginLeft:"auto",width:6,height:6,borderRadius:"50%",background:acc,flexShrink:0}}/>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div style={{borderTop:`1px solid ${scheme.border}`,padding:"10px 8px",display:"flex",flexDirection:sidebarCollapsed?"column":"row",gap:6,alignItems:"center"}}>
+          <button className="btn btn-ghost" onClick={()=>setShowSettings(true)}
+            style={{flex:1,fontSize:".8em",padding:"8px",display:"flex",alignItems:"center",justifyContent:sidebarCollapsed?"center":"flex-start",gap:8}}>
+            <span>⚙</span>{!sidebarCollapsed&&"Settings"}
+          </button>
+          <button className="btn btn-ghost" onClick={()=>{const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`zenspace_${todayStr()}.json`;a.click();URL.revokeObjectURL(url);showToast("Exported!");}}
+            style={{padding:"8px",fontSize:".8em"}} title="Export data">↓</button>
+        </div>
+      </nav>
+
+      {/* MAIN */}
+      <main style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column",position:"relative",zIndex:1}}>
+        <div style={{display:"flex",alignItems:"center",padding:"12px 24px",borderBottom:`1px solid ${scheme.border}`,gap:12,background:"rgba(0,0,0,.15)",backdropFilter:"blur(10px)",flexShrink:0}}>
+          <div style={{flex:1,fontSize:".85em",color:scheme.muted}}>
+            {navItems.find(n=>n.id===activeSection)?.icon} {navItems.find(n=>n.id===activeSection)?.label||"Search"}
+          </div>
+          <span style={{fontSize:".75em",color:scheme.muted,background:"rgba(255,255,255,.06)",padding:"3px 8px",borderRadius:6}}>
+            {new Date().toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"short"})}
+          </span>
+          <button className="btn btn-primary" onClick={()=>setShowAI(true)} style={{display:"flex",alignItems:"center",gap:6}}>
+            <span>✦</span> AI
+          </button>
+        </div>
+
+        <div style={{flex:1,overflow:"hidden",display:"flex"}}>
+          {activeSection==="home"&&<HomeSection data={data} update={update} setActiveSection={setActiveSection} setActiveNotebook={setActiveNotebook} setActivePage={setActivePage} showToast={showToast} scheme={scheme}/>}
+          {activeSection==="search"&&<SearchSection data={data} query={searchQuery} setActiveSection={setActiveSection} setActiveNotebook={setActiveNotebook} setActivePage={setActivePage} scheme={scheme}/>}
+          {activeSection==="notes"&&<NotesSection data={data} update={update} activeNotebook={activeNotebook} setActiveNotebook={setActiveNotebook} activePage={activePage} setActivePage={setActivePage} showToast={showToast} scheme={scheme}/>}
+          {activeSection==="todos"&&<TodoSection data={data} update={update} showToast={showToast} scheme={scheme}/>}
+          {activeSection==="calendar"&&<CalendarSection data={data} update={update} showToast={showToast} scheme={scheme}/>}
+          {activeSection==="timer"&&<TimerSection data={data} update={update} showToast={showToast} scheme={scheme}/>}
+          {activeSection==="habits"&&<HabitsSection data={data} update={update} showToast={showToast} scheme={scheme}/>}
+          {activeSection==="finance"&&<FinanceSection data={data} update={update} showToast={showToast} scheme={scheme}/>}
+          {activeSection==="reading"&&<ReadingSection data={data} update={update} showToast={showToast} scheme={scheme}/>}
+          {activeSection==="goals"&&<GoalsSection data={data} update={update} showToast={showToast} scheme={scheme}/>}
+          {activeSection==="mood"&&<MoodSection data={data} update={update} showToast={showToast} scheme={scheme}/>}
+          {activeSection==="flashcards"&&<FlashcardsSection data={data} update={update} showToast={showToast} scheme={scheme}/>}
+          {activeSection==="whiteboard"&&<WhiteboardSection scheme={scheme}/>}
+        </div>
+      </main>
+
+      {showAI&&<AIPanel data={data} onClose={()=>setShowAI(false)} scheme={scheme} acc={acc}/>}
+      {showSettings&&<SettingsPanel data={data} update={update} onClose={()=>setShowSettings(false)} showToast={showToast} scheme={scheme}/>}
+      {cmdPalette&&<CommandPalette data={data} onClose={()=>setCmdPalette(false)} setActiveSection={setActiveSection} setActiveNotebook={setActiveNotebook} setActivePage={setActivePage} scheme={scheme}/>}
+
+      {toast&&(
+        <div className="fade-in" style={{position:"fixed",bottom:24,right:24,zIndex:9999,background:toast.type==="error"?"#ef4444":acc,color:"#fff",padding:"10px 20px",borderRadius:10,fontWeight:600,fontSize:".88em",boxShadow:"0 8px 32px rgba(0,0,0,.4)"}}>
+          {toast.msg}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// HOME
+// ═══════════════════════════════════════════════════════
+function HomeSection({data,update,setActiveSection,setActiveNotebook,setActivePage,showToast,scheme}){
+  const[quickCapture,setQuickCapture]=useState("");
+  const quotes=[
+    {text:"The secret of getting ahead is getting started.",author:"Mark Twain"},
+    {text:"Focus on being productive instead of busy.",author:"Tim Ferriss"},
+    {text:"Your mind is for having ideas, not holding them.",author:"David Allen"},
+    {text:"Done is better than perfect.",author:"Sheryl Sandberg"},
+    {text:"Small steps every day lead to big changes.",author:"Unknown"}
+  ];
+  const[quote]=useState(()=>quotes[Math.floor(Math.random()*quotes.length)]);
+  const hr=new Date().getHours();
+  const greeting=hr<12?"morning":hr<17?"afternoon":"evening";
+  const todayHabits=data.habits.filter(h=>h.completions[todayStr()]);
+  const pendingTodos=data.todos.filter(t=>!t.done).length;
+  const todayEvents=data.calendarEvents.filter(e=>e.date===todayStr());
+  const recentPages=data.notebooks.flatMap(nb=>nb.pages.map(p=>({...p,notebookId:nb.id,notebookName:nb.name,notebookColor:nb.color}))).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,6);
+
+  const handleCapture=e=>{
+    if(e.key==="Enter"&&quickCapture.trim()){
+      const text=quickCapture.trim();
+      if(text.startsWith("#")){
+        const nb=data.notebooks[0];
+        const page={id:uid(),title:text.replace(/^#\s*/,""),content:"",tags:[],createdAt:Date.now(),updatedAt:Date.now()};
+        update(prev=>({...prev,notebooks:prev.notebooks.map(n=>n.id===nb.id?{...n,pages:[page,...n.pages]}:n)}));
+        showToast("Note created!");
+      }else{
+        update(prev=>({...prev,todos:[{id:uid(),text,done:false,priority:"medium",dueDate:null,subtasks:[],category:"Quick",createdAt:Date.now()},...prev.todos]}));
+        showToast("Task added!");
+      }
+      setQuickCapture("");
+    }
+  };
+
+  const acc=data.settings.accentColor;
+  return(
+    <div style={{flex:1,overflowY:"auto",padding:"28px 32px"}} className="fade-in">
+      <div style={{marginBottom:28}}>
+        <h1 style={{fontSize:"2em",fontWeight:800,letterSpacing:"-.04em",marginBottom:4}}>Good {greeting} ✦</h1>
+        <p style={{color:scheme.muted,fontSize:".95em"}}>{new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</p>
+      </div>
+
+      <div style={{marginBottom:24}}>
+        <input value={quickCapture} onChange={e=>setQuickCapture(e.target.value)} onKeyDown={handleCapture}
+          placeholder="✦ Quick capture — press Enter (starts with # = note, else = task)"
+          style={{width:"100%",padding:"14px 18px",fontSize:".95em",borderRadius:12,background:"rgba(255,255,255,.04)"}}/>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))",gap:12,marginBottom:24}}>
+        {[
+          {label:"Pending Tasks",value:pendingTodos,icon:"✓",color:"#f59e0b",action:()=>setActiveSection("todos")},
+          {label:"Today's Events",value:todayEvents.length,icon:"◫",color:"#34d399",action:()=>setActiveSection("calendar")},
+          {label:"Habits Done",value:`${todayHabits.length}/${data.habits.length}`,icon:"⬡",color:acc,action:()=>setActiveSection("habits")},
+          {label:"Notebooks",value:data.notebooks.length,icon:"✦",color:"#60a5fa",action:()=>setActiveSection("notes")}
+        ].map(s=>(
+          <button key={s.label} onClick={s.action} className="btn"
+            style={{background:"rgba(255,255,255,.03)",border:`1px solid ${scheme.border}`,borderRadius:12,padding:"16px",textAlign:"left"}}
+            onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,.08)"}
+            onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,.03)"}>
+            <div style={{fontSize:"1.3em",marginBottom:8}}>{s.icon}</div>
+            <div style={{fontSize:"1.6em",fontWeight:800,color:s.color}}>{s.value}</div>
+            <div style={{fontSize:".75em",color:scheme.muted,marginTop:2}}>{s.label}</div>
+          </button>
+        ))}
+      </div>
+
+      <div style={{background:`linear-gradient(135deg,${acc}18,rgba(255,255,255,.02))`,border:`1px solid ${scheme.border}`,borderRadius:14,padding:"20px 24px",marginBottom:24,position:"relative",overflow:"hidden"}}>
+        <div style={{fontSize:"3em",opacity:.1,position:"absolute",top:8,left:16,lineHeight:1,fontFamily:"serif"}}>"</div>
+        <p style={{fontSize:"1.05em",fontStyle:"italic",fontWeight:500,position:"relative",zIndex:1}}>{quote.text}</p>
+        <p style={{fontSize:".8em",color:scheme.muted,marginTop:8}}>— {quote.author}</p>
+      </div>
+
+      {todayEvents.length>0&&(
+        <div style={{marginBottom:24}}>
+          <div style={{fontSize:".78em",fontWeight:700,color:scheme.muted,textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}}>Today's Schedule</div>
+          {todayEvents.map(ev=>(
+            <div key={ev.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 16px",background:"rgba(255,255,255,.04)",borderRadius:10,borderLeft:`3px solid ${ev.color}`,marginBottom:6}}>
+              <span style={{fontSize:".8em",fontWeight:700,color:ev.color}}>{ev.time}</span>
+              <span style={{fontSize:".9em"}}>{ev.title}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div>
+        <div style={{fontSize:".78em",fontWeight:700,color:scheme.muted,textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}}>Recent Notes</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
+          {recentPages.map(p=>(
+            <button key={p.id} className="btn" onClick={()=>{setActiveSection("notes");setActiveNotebook(p.notebookId);setActivePage(p.id);}}
+              style={{background:"rgba(255,255,255,.03)",border:`1px solid ${scheme.border}`,borderRadius:12,padding:"14px 16px",textAlign:"left"}}
+              onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,.08)"}
+              onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,.03)"}>
+              <div style={{fontSize:".7em",color:p.notebookColor,fontWeight:700,marginBottom:4}}>{p.notebookName}</div>
+              <div style={{fontWeight:600,fontSize:".88em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.title}</div>
+              <div style={{fontSize:".72em",color:scheme.muted,marginTop:4}}>{formatDate(p.updatedAt)}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// SEARCH
+// ═══════════════════════════════════════════════════════
+function SearchSection({data,query,setActiveSection,setActiveNotebook,setActivePage,scheme}){
+  const q=query.toLowerCase();
+  const results=[
+    ...data.notebooks.flatMap(nb=>nb.pages.filter(p=>p.title.toLowerCase().includes(q)||p.content.toLowerCase().includes(q)).map(p=>({type:"note",icon:"✦",title:p.title,sub:nb.name,color:nb.color,action:()=>{setActiveSection("notes");setActiveNotebook(nb.id);setActivePage(p.id);}}))),
+    ...data.todos.filter(t=>t.text.toLowerCase().includes(q)).map(t=>({type:"todo",icon:"✓",title:t.text,sub:t.category||"Task",color:"#f59e0b"})),
+    ...data.calendarEvents.filter(e=>e.title.toLowerCase().includes(q)).map(e=>({type:"event",icon:"◫",title:e.title,sub:e.date,color:e.color}))
+  ];
+  return(
+    <div style={{flex:1,overflowY:"auto",padding:"28px 32px"}} className="fade-in">
+      <h2 style={{fontSize:"1.2em",fontWeight:700,marginBottom:20}}>Results for "{query}"</h2>
+      {results.length===0&&<p style={{color:scheme.muted}}>No results found.</p>}
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {results.map((r,i)=>(
+          <button key={i} className="btn" onClick={r.action}
+            style={{display:"flex",alignItems:"center",gap:14,padding:"12px 16px",background:"rgba(255,255,255,.03)",border:`1px solid ${scheme.border}`,borderRadius:10,textAlign:"left"}}>
+            <span style={{color:r.color,fontSize:"1.1em"}}>{r.icon}</span>
+            <div>
+              <div style={{fontWeight:600,fontSize:".9em"}}>{r.title}</div>
+              <div style={{fontSize:".75em",color:scheme.muted}}>{r.sub} · {r.type}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// NOTES
+// ═══════════════════════════════════════════════════════
+function NotesSection({data,update,activeNotebook,setActiveNotebook,activePage,setActivePage,showToast,scheme}){
+  const[editMode,setEditMode]=useState(true);
+  const[showNewNb,setShowNewNb]=useState(false);
+  const[newNbName,setNewNbName]=useState("");
+
+  const notebook=data.notebooks.find(n=>n.id===activeNotebook)||data.notebooks[0];
+  const page=notebook?.pages.find(p=>p.id===activePage)||notebook?.pages[0];
+
+  useEffect(()=>{if(!activeNotebook&&data.notebooks.length)setActiveNotebook(data.notebooks[0].id);},[data.notebooks]);
+  useEffect(()=>{if(notebook&&!activePage&&notebook.pages.length)setActivePage(notebook.pages[0].id);},[notebook]);
+
+  const updatePage=(field,value)=>{
+    update(prev=>({...prev,notebooks:prev.notebooks.map(nb=>nb.id===notebook.id?{...nb,pages:nb.pages.map(p=>p.id===page.id?{...p,[field]:value,updatedAt:Date.now()}:p)}:nb)}));
+  };
+
+  const addPage=()=>{
+    const newPage={id:uid(),title:"Untitled",content:"",tags:[],createdAt:Date.now(),updatedAt:Date.now()};
+    update(prev=>({...prev,notebooks:prev.notebooks.map(nb=>nb.id===notebook.id?{...nb,pages:[...nb.pages,newPage]}:nb)}));
+    setActivePage(newPage.id);showToast("Page created");
+  };
+
+  const deletePage=pageId=>{
+    update(prev=>({...prev,notebooks:prev.notebooks.map(nb=>nb.id===notebook.id?{...nb,pages:nb.pages.filter(p=>p.id!==pageId)}:nb)}));
+    if(notebook.pages.length>1)setActivePage(notebook.pages.find(p=>p.id!==pageId)?.id||null);
+    showToast("Deleted");
+  };
+
+  const addNotebook=()=>{
+    if(!newNbName.trim())return;
+    const nb={id:uid(),name:newNbName,color:["#a78bfa","#34d399","#60a5fa","#f472b6","#f59e0b"][Math.floor(Math.random()*5)],pages:[]};
+    update(prev=>({...prev,notebooks:[...prev.notebooks,nb]}));
+    setActiveNotebook(nb.id);setShowNewNb(false);setNewNbName("");showToast("Notebook created");
+  };
+
+  const exportPage=()=>{
+    if(!page)return;
+    const blob=new Blob([page.content],{type:"text/plain"});
+    const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`${page.title}.md`;a.click();URL.revokeObjectURL(url);
+    showToast("Exported!");
+  };
+
+  const acc=data.settings.accentColor;
+  return(
+    <div style={{display:"flex",flex:1,overflow:"hidden"}}>
+      {/* Notebooks */}
+      <div style={{width:180,borderRight:`1px solid ${scheme.border}`,display:"flex",flexDirection:"column",overflowY:"auto",padding:"12px 8px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 8px 10px",fontSize:".72em",fontWeight:700,color:scheme.muted,textTransform:"uppercase",letterSpacing:".08em"}}>
+          Notebooks
+          <button className="btn btn-ghost" onClick={()=>setShowNewNb(v=>!v)} style={{padding:"2px 6px",fontSize:".9em"}}>+</button>
+        </div>
+        {showNewNb&&(
+          <div style={{padding:"0 4px 8px"}}>
+            <input value={newNbName} onChange={e=>setNewNbName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addNotebook()} placeholder="Name..." style={{width:"100%",fontSize:".8em"}} autoFocus/>
+          </div>
+        )}
+        {data.notebooks.map(nb=>(
+          <button key={nb.id} className="btn" onClick={()=>{setActiveNotebook(nb.id);setActivePage(nb.pages[0]?.id||null);}}
+            style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:8,textAlign:"left",background:activeNotebook===nb.id?`${nb.color}25`:"transparent",color:activeNotebook===nb.id?nb.color:scheme.text,fontSize:".85em",fontWeight:activeNotebook===nb.id?600:400,marginBottom:2}}>
+            <span style={{width:8,height:8,borderRadius:"50%",background:nb.color,flexShrink:0}}/>
+            <span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{nb.name}</span>
+            <span style={{fontSize:".7em",color:scheme.muted}}>{nb.pages.length}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Pages */}
+      <div style={{width:190,borderRight:`1px solid ${scheme.border}`,display:"flex",flexDirection:"column",overflowY:"auto",padding:"12px 8px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 8px 10px",fontSize:".72em",fontWeight:700,color:scheme.muted,textTransform:"uppercase",letterSpacing:".08em"}}>
+          Pages
+          <button className="btn btn-ghost" onClick={addPage} style={{padding:"2px 6px",fontSize:".9em"}}>+</button>
+        </div>
+        {notebook?.pages.map(p=>(
+          <div key={p.id} style={{display:"flex",alignItems:"center",gap:2,marginBottom:2}}>
+            <button className="btn" onClick={()=>setActivePage(p.id)}
+              style={{flex:1,display:"flex",alignItems:"center",gap:6,padding:"8px 10px",borderRadius:8,textAlign:"left",background:activePage===p.id?"rgba(255,255,255,.1)":"transparent",fontSize:".82em",fontWeight:activePage===p.id?600:400,overflow:"hidden"}}>
+              <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:activePage===p.id?acc:scheme.text}}>◻ {p.title}</span>
+            </button>
+            <button className="btn" onClick={()=>deletePage(p.id)} style={{padding:"4px 6px",fontSize:".7em",color:scheme.muted,opacity:.5}}>✕</button>
+          </div>
+        ))}
+        {!notebook?.pages.length&&<p style={{fontSize:".78em",color:scheme.muted,padding:"8px 10px"}}>No pages yet</p>}
+      </div>
+
+      {/* Editor */}
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        {page?(
+          <>
+            <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 20px",borderBottom:`1px solid ${scheme.border}`,flexShrink:0}}>
+              <button className="btn btn-ghost" onClick={()=>setEditMode(v=>!v)} style={{fontSize:".78em"}}>{editMode?"◻ Preview":"✎ Edit"}</button>
+              <button className="btn btn-ghost" onClick={exportPage} style={{fontSize:".78em"}}>↓ Export</button>
+              <div style={{marginLeft:"auto",fontSize:".72em",color:scheme.muted}}>Saved {formatDate(page.updatedAt)}</div>
+            </div>
+            {editMode?(
+              <div style={{flex:1,display:"flex",flexDirection:"column",padding:"20px 28px",gap:12,overflow:"hidden"}}>
+                <input value={page.title} onChange={e=>updatePage("title",e.target.value)}
+                  style={{fontSize:"1.6em",fontWeight:800,background:"transparent",border:"none",color:scheme.text,padding:0,letterSpacing:"-.03em"}}/>
+                <textarea value={page.content} onChange={e=>updatePage("content",e.target.value)}
+                  placeholder="Start writing... (Markdown supported)"
+                  style={{flex:1,background:"transparent",border:"none",color:scheme.text,resize:"none",fontSize:".92em",lineHeight:1.7,fontFamily:`'${data.settings.font}',sans-serif`}}/>
+              </div>
+            ):(
+              <div style={{flex:1,overflowY:"auto",padding:"20px 28px"}}>
+                <h1 style={{fontSize:"1.8em",fontWeight:800,marginBottom:16,letterSpacing:"-.04em"}}>{page.title}</h1>
+                <div style={{lineHeight:1.7}} dangerouslySetInnerHTML={{__html:renderMarkdown(page.content)}}/>
+              </div>
+            )}
+          </>
+        ):(
+          <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",color:scheme.muted,flexDirection:"column",gap:12}}>
+            <span style={{fontSize:"2.5em",opacity:.3}}>✦</span>
+            <p>Select or create a page</p>
+            <button className="btn btn-primary" onClick={addPage}>+ New Page</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// TODOS
+// ═══════════════════════════════════════════════════════
+function TodoSection({data,update,showToast,scheme}){
+  const[newTask,setNewTask]=useState("");
+  const[priority,setPriority]=useState("medium");
+  const[filter,setFilter]=useState("all");
+  const[sortBy,setSortBy]=useState("created");
+  const[expandedTask,setExpandedTask]=useState(null);
+  const[newSubtasks,setNewSubtasks]=useState({});
+  const PCOLS={high:"#ef4444",medium:"#f59e0b",low:"#34d399"};
+  const acc=data.settings.accentColor;
+
+  const filtered=data.todos
+    .filter(t=>filter==="all"?true:filter==="done"?t.done:!t.done)
+    .sort((a,b)=>{
+      if(sortBy==="priority"){const o={high:0,medium:1,low:2};return o[a.priority]-o[b.priority];}
+      return b.createdAt-a.createdAt;
+    });
+
+  const addTodo=()=>{
+    if(!newTask.trim())return;
+    update(prev=>({...prev,todos:[{id:uid(),text:newTask,done:false,priority,dueDate:null,subtasks:[],category:"General",createdAt:Date.now()},...prev.todos]}));
+    setNewTask("");showToast("Task added!");
+  };
+
+  const toggle=id=>update(prev=>({...prev,todos:prev.todos.map(t=>t.id===id?{...t,done:!t.done}:t)}));
+  const deleteTodo=id=>{update(prev=>({...prev,todos:prev.todos.filter(t=>t.id!==id)}));showToast("Deleted");};
+  const toggleSub=(tid,sid)=>update(prev=>({...prev,todos:prev.todos.map(t=>t.id===tid?{...t,subtasks:t.subtasks.map(s=>s.id===sid?{...s,done:!s.done}:s)}:t)}));
+  const addSub=(tid)=>{
+    const text=newSubtasks[tid]||"";
+    if(!text.trim())return;
+    update(prev=>({...prev,todos:prev.todos.map(t=>t.id===tid?{...t,subtasks:[...t.subtasks,{id:uid(),text,done:false}]}:t)}));
+    setNewSubtasks(p=>({...p,[tid]:""}));
+  };
+
+  const done=data.todos.filter(t=>t.done).length;
+  const pct=data.todos.length?Math.round(done/data.todos.length*100):0;
+
+  return(
+    <div style={{flex:1,overflowY:"auto",padding:"28px 32px"}} className="fade-in">
+      <div style={{marginBottom:20}}>
+        <h2 style={{fontSize:"1.4em",fontWeight:800,letterSpacing:"-.03em",marginBottom:8}}>To-Do List</h2>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{width:180,height:4,background:"rgba(255,255,255,.1)",borderRadius:4}}>
+            <div style={{width:`${pct}%`,height:"100%",background:acc,borderRadius:4,transition:"width .4s"}}/>
+          </div>
+          <span style={{fontSize:".8em",color:scheme.muted}}>{done}/{data.todos.length} done</span>
+        </div>
+      </div>
+
+      <div style={{display:"flex",gap:10,marginBottom:16}}>
+        <input value={newTask} onChange={e=>setNewTask(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addTodo()} placeholder="Add a task... (Enter)" style={{flex:1}}/>
+        <select value={priority} onChange={e=>setPriority(e.target.value)} style={{width:110}}>
+          <option value="high">🔴 High</option>
+          <option value="medium">🟡 Medium</option>
+          <option value="low">🟢 Low</option>
+        </select>
+        <button className="btn btn-primary" onClick={addTodo}>Add</button>
+      </div>
+
+      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+        {["all","active","done"].map(f=>(
+          <button key={f} className="btn" onClick={()=>setFilter(f)}
+            style={{padding:"5px 14px",borderRadius:20,background:filter===f?acc:"rgba(255,255,255,.06)",color:filter===f?"#fff":scheme.text,fontSize:".78em",fontWeight:filter===f?700:400}}>
+            {f.charAt(0).toUpperCase()+f.slice(1)}
+          </button>
+        ))}
+        <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{fontSize:".78em",padding:"4px 10px",marginLeft:"auto"}}>
+          <option value="created">Recent</option>
+          <option value="priority">Priority</option>
+        </select>
+      </div>
+
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {filtered.map(todo=>(
+          <div key={todo.id} style={{background:"rgba(255,255,255,.03)",border:`1px solid ${scheme.border}`,borderRadius:12,overflow:"hidden",borderLeft:`3px solid ${PCOLS[todo.priority]}`}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px"}}>
+              <button className="btn" onClick={()=>toggle(todo.id)}
+                style={{width:20,height:20,borderRadius:6,border:`2px solid ${todo.done?acc:scheme.border}`,background:todo.done?acc:"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:".7em",color:"#fff"}}>
+                {todo.done&&"✓"}
+              </button>
+              <div style={{flex:1,textDecoration:todo.done?"line-through":"none",opacity:todo.done?.5:1,fontSize:".9em",fontWeight:500}}>{todo.text}</div>
+              {todo.subtasks.length>0&&(
+                <span style={{fontSize:".72em",color:scheme.muted,background:"rgba(255,255,255,.06)",padding:"2px 8px",borderRadius:20}}>
+                  {todo.subtasks.filter(s=>s.done).length}/{todo.subtasks.length}
+                </span>
+              )}
+              <button className="btn" onClick={()=>setExpandedTask(expandedTask===todo.id?null:todo.id)}
+                style={{padding:"4px 8px",fontSize:".75em",color:scheme.muted}}>
+                {expandedTask===todo.id?"▲":"▼"}
+              </button>
+              <button className="btn" onClick={()=>deleteTodo(todo.id)} style={{padding:"4px 8px",fontSize:".75em",color:scheme.muted,opacity:.5}}>✕</button>
+            </div>
+            {expandedTask===todo.id&&(
+              <div style={{padding:"0 16px 12px",borderTop:`1px solid ${scheme.border}`,paddingTop:10}}>
+                {todo.subtasks.map(st=>(
+                  <div key={st.id} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0"}}>
+                    <button className="btn" onClick={()=>toggleSub(todo.id,st.id)}
+                      style={{width:16,height:16,borderRadius:4,border:`2px solid ${st.done?acc:scheme.border}`,background:st.done?acc:"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:".6em",color:"#fff"}}>
+                      {st.done&&"✓"}
+                    </button>
+                    <span style={{fontSize:".82em",textDecoration:st.done?"line-through":"none",opacity:st.done?.5:1}}>{st.text}</span>
+                  </div>
+                ))}
+                <div style={{display:"flex",gap:8,marginTop:8}}>
+                  <input value={newSubtasks[todo.id]||""} onChange={e=>setNewSubtasks(p=>({...p,[todo.id]:e.target.value}))}
+                    onKeyDown={e=>e.key==="Enter"&&addSub(todo.id)}
+                    placeholder="Add subtask... (Enter)" style={{flex:1,fontSize:".8em",padding:"5px 10px"}}/>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+        {filtered.length===0&&<div style={{textAlign:"center",padding:"40px",color:scheme.muted,fontSize:".9em"}}>No tasks here ✦</div>}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// CALENDAR
+// ═══════════════════════════════════════════════════════
+function CalendarSection({data,update,showToast,scheme}){
+  const[viewDate,setViewDate]=useState(new Date());
+  const[selectedDay,setSelectedDay]=useState(todayStr());
+  const[showForm,setShowForm]=useState(false);
+  const[newEvent,setNewEvent]=useState({title:"",time:"09:00",color:"#a78bfa",category:"Personal",notes:"",recurring:null});
+  const acc=data.settings.accentColor;
+  const year=viewDate.getFullYear(),month=viewDate.getMonth();
+  const firstDay=new Date(year,month,1).getDay();
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const DAYS=["Su","Mo","Tu","We","Th","Fr","Sa"];
+
+  const getEvents=dateStr=>data.calendarEvents.filter(e=>e.date===dateStr||(e.recurring==="daily")||(e.recurring==="weekly"&&new Date(e.date).getDay()===new Date(dateStr+"T12:00:00").getDay()));
+
+  const addEvent=()=>{
+    if(!newEvent.title.trim())return;
+    update(prev=>({...prev,calendarEvents:[...prev.calendarEvents,{id:uid(),...newEvent,date:selectedDay}]}));
+    setShowForm(false);setNewEvent({title:"",time:"09:00",color:"#a78bfa",category:"Personal",notes:"",recurring:null});
+    showToast("Event added!");
+  };
+
+  const cells=[];
+  for(let i=0;i<firstDay;i++)cells.push(null);
+  for(let d=1;d<=daysInMonth;d++)cells.push(d);
+
+  return(
+    <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+      <div style={{flex:1,overflowY:"auto",padding:"28px 24px"}} className="fade-in">
+        <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:24}}>
+          <button className="btn btn-ghost" onClick={()=>setViewDate(new Date(year,month-1))}>‹</button>
+          <h2 style={{fontSize:"1.3em",fontWeight:800,letterSpacing:"-.03em"}}>{MONTHS[month]} {year}</h2>
+          <button className="btn btn-ghost" onClick={()=>setViewDate(new Date(year,month+1))}>›</button>
+          <button className="btn btn-ghost" onClick={()=>{setViewDate(new Date());setSelectedDay(todayStr());}} style={{marginLeft:"auto",fontSize:".78em"}}>Today</button>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,marginBottom:8}}>
+          {DAYS.map(d=><div key={d} style={{textAlign:"center",fontSize:".72em",fontWeight:700,color:scheme.muted,padding:"4px"}}>{d}</div>)}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4}}>
+          {cells.map((d,i)=>{
+            if(!d)return<div key={i}/>;
+            const dateStr=`${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+            const evs=getEvents(dateStr);
+            const isToday=dateStr===todayStr(),isSel=dateStr===selectedDay;
+            return(
+              <button key={i} className="btn" onClick={()=>setSelectedDay(dateStr)}
+                style={{padding:"8px 4px",borderRadius:10,textAlign:"center",background:isSel?acc:isToday?"rgba(255,255,255,.08)":"transparent",color:isSel?"#fff":scheme.text,border:isToday&&!isSel?`1px solid ${acc}`:"1px solid transparent",fontWeight:isToday||isSel?700:400,fontSize:".88em",transition:"all .15s"}}>
+                {d}
+                {evs.length>0&&(
+                  <div style={{display:"flex",justifyContent:"center",gap:2,marginTop:2}}>
+                    {evs.slice(0,3).map((e,ei)=><div key={ei} style={{width:5,height:5,borderRadius:"50%",background:isSel?"rgba(255,255,255,.7)":e.color}}/>)}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{width:270,borderLeft:`1px solid ${scheme.border}`,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <div style={{padding:"20px 16px 12px",borderBottom:`1px solid ${scheme.border}`,flexShrink:0}}>
+          <div style={{fontWeight:700,marginBottom:6,fontSize:".9em"}}>{new Date(selectedDay+"T12:00:00").toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long"})}</div>
+          <button className="btn btn-primary" onClick={()=>setShowForm(v=>!v)} style={{width:"100%",fontSize:".82em"}}>+ Add Event</button>
+        </div>
+        {showForm&&(
+          <div style={{padding:"12px 14px",borderBottom:`1px solid ${scheme.border}`,display:"flex",flexDirection:"column",gap:8}}>
+            <input value={newEvent.title} onChange={e=>setNewEvent(p=>({...p,title:e.target.value}))} placeholder="Event title" style={{fontSize:".82em"}}/>
+            <input type="time" value={newEvent.time} onChange={e=>setNewEvent(p=>({...p,time:e.target.value}))} style={{fontSize:".82em"}}/>
+            <select value={newEvent.color} onChange={e=>setNewEvent(p=>({...p,color:e.target.value}))} style={{fontSize:".82em"}}>
+              {["#a78bfa","#34d399","#60a5fa","#f472b6","#f59e0b","#ef4444"].map(c=><option key={c} value={c}>{c}</option>)}
+            </select>
+            <select value={newEvent.recurring||""} onChange={e=>setNewEvent(p=>({...p,recurring:e.target.value||null}))} style={{fontSize:".82em"}}>
+              <option value="">No repeat</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+            </select>
+            <button className="btn btn-primary" onClick={addEvent} style={{fontSize:".82em"}}>Save</button>
+          </div>
+        )}
+        <div style={{flex:1,overflowY:"auto",padding:"12px 14px"}}>
+          {getEvents(selectedDay).length===0&&<p style={{color:scheme.muted,fontSize:".82em",textAlign:"center",paddingTop:20}}>No events</p>}
+          {getEvents(selectedDay).map(ev=>(
+            <div key={ev.id+selectedDay} style={{marginBottom:8,padding:"10px 12px",background:"rgba(255,255,255,.04)",borderRadius:10,borderLeft:`3px solid ${ev.color}`}}>
+              <div style={{fontWeight:600,fontSize:".88em"}}>{ev.title}</div>
+              <div style={{fontSize:".75em",color:scheme.muted,marginTop:2}}>{ev.time}{ev.recurring&&` · ↻ ${ev.recurring}`}</div>
+              <button className="btn" onClick={()=>update(prev=>({...prev,calendarEvents:prev.calendarEvents.filter(e=>e.id!==ev.id)}))} style={{fontSize:".7em",color:scheme.muted,opacity:.5,marginTop:4}}>Delete</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// FOCUS TIMER
+// ═══════════════════════════════════════════════════════
+function TimerSection({data,update,showToast,scheme}){
+  const[mode,setMode]=useState("focus");
+  const[customFocus,setCustomFocus]=useState(25);
+  const[customBreak,setCustomBreak]=useState(5);
+  const MODES={focus:customFocus*60,short:customBreak*60,long:15*60};
+  const[time,setTime]=useState(MODES.focus);
+  const[running,setRunning]=useState(false);
+  const[sessionName,setSessionName]=useState("Deep Work");
+  const[fullscreen,setFullscreen]=useState(false);
+  const intervalRef=useRef(null);
+  const acc=data.settings.accentColor;
+
+  useEffect(()=>{
+    if(running){
+      intervalRef.current=setInterval(()=>{
+        setTime(t=>{
+          if(t<=1){
+            setRunning(false);clearInterval(intervalRef.current);
+            const session={id:uid(),name:sessionName,mode,duration:MODES[mode],date:todayStr(),completedAt:Date.now()};
+            update(prev=>({...prev,pomodoroHistory:[session,...prev.pomodoroHistory]}));
+            showToast(`Session complete! 🎉`);
+            return 0;
+          }
+          return t-1;
+        });
+      },1000);
+    }else clearInterval(intervalRef.current);
+    return()=>clearInterval(intervalRef.current);
+  },[running]);
+
+  const switchMode=m=>{setMode(m);setTime(MODES[m]);setRunning(false);};
+  const reset=()=>{setTime(MODES[mode]);setRunning(false);};
+  const mm=String(Math.floor(time/60)).padStart(2,"0");
+  const ss=String(time%60).padStart(2,"0");
+  const pct=(1-time/MODES[mode])*100;
+  const r=95,circ=2*Math.PI*r;
+  const todaySessions=data.pomodoroHistory.filter(s=>s.date===todayStr()&&s.mode==="focus");
+
+  const timerUI=(
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flex:1,padding:32}}>
+      <div style={{display:"flex",gap:10,marginBottom:28}}>
+        {[["focus","Focus"],["short","Short Break"],["long","Long Break"]].map(([m,l])=>(
+          <button key={m} className="btn" onClick={()=>switchMode(m)}
+            style={{padding:"8px 16px",borderRadius:20,background:mode===m?acc:"rgba(255,255,255,.08)",color:mode===m?"#fff":scheme.text,fontWeight:mode===m?700:400,fontSize:".85em"}}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      <input value={sessionName} onChange={e=>setSessionName(e.target.value)}
+        style={{background:"transparent",border:"none",textAlign:"center",fontSize:".9em",color:scheme.muted,fontFamily:"inherit",marginBottom:16}}/>
+
+      <div style={{position:"relative",width:220,height:220,marginBottom:28}}>
+        <svg width="220" height="220" style={{transform:"rotate(-90deg)"}}>
+          <circle cx="110" cy="110" r={r} fill="none" stroke="rgba(255,255,255,.07)" strokeWidth="8"/>
+          <circle cx="110" cy="110" r={r} fill="none" stroke={acc} strokeWidth="8"
+            strokeDasharray={circ} strokeDashoffset={circ*(1-pct/100)}
+            strokeLinecap="round" style={{transition:"stroke-dashoffset 1s linear"}}/>
+        </svg>
+        <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+          <div style={{fontSize:"3.2em",fontWeight:800,letterSpacing:"-.04em",fontVariantNumeric:"tabular-nums"}}>{mm}:{ss}</div>
+          <div style={{fontSize:".78em",color:scheme.muted,textTransform:"uppercase",letterSpacing:".1em",marginTop:2}}>{mode==="focus"?"Focus":"Break"}</div>
+        </div>
+      </div>
+
+      <div style={{display:"flex",gap:12,marginBottom:24}}>
+        <button className="btn" onClick={reset} style={{padding:"12px 20px",borderRadius:12,background:"rgba(255,255,255,.08)",fontSize:".9em"}}>↺</button>
+        <button className="btn" onClick={()=>setRunning(v=>!v)}
+          style={{padding:"12px 40px",borderRadius:12,background:acc,color:"#fff",fontWeight:700,fontSize:"1em"}}>
+          {running?"⏸ Pause":"▶ Start"}
+        </button>
+        <button className="btn" onClick={()=>setFullscreen(v=>!v)} style={{padding:"12px 20px",borderRadius:12,background:"rgba(255,255,255,.08)",fontSize:".9em"}}>
+          {fullscreen?"✕":"⛶"}
+        </button>
+      </div>
+
+      <div style={{display:"flex",gap:24,fontSize:".82em",color:scheme.muted,marginBottom:24}}>
+        <div style={{textAlign:"center"}}><div style={{fontWeight:800,fontSize:"1.3em",color:acc}}>{todaySessions.length}</div>Sessions today</div>
+        <div style={{textAlign:"center"}}><div style={{fontWeight:800,fontSize:"1.3em",color:acc}}>{Math.round(todaySessions.reduce((a,s)=>a+s.duration,0)/60)}m</div>Focus time</div>
+      </div>
+
+      {!fullscreen&&data.pomodoroHistory.length>0&&(
+        <div style={{width:"100%",maxWidth:380}}>
+          <div style={{fontSize:".72em",fontWeight:700,color:scheme.muted,textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}}>Recent Sessions</div>
+          {data.pomodoroHistory.slice(0,5).map(s=>(
+            <div key={s.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 12px",background:"rgba(255,255,255,.04)",borderRadius:8,marginBottom:4,fontSize:".82em"}}>
+              <span>{s.name}</span>
+              <span style={{color:scheme.muted}}>{Math.round(s.duration/60)}m · {formatDate(s.completedAt)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  if(fullscreen)return(
+    <div style={{position:"fixed",inset:0,zIndex:9998,background:scheme.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+      {timerUI}
+    </div>
+  );
+  return<div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column"}} className="fade-in">{timerUI}</div>;
+}
+
+// ═══════════════════════════════════════════════════════
+// HABITS
+// ═══════════════════════════════════════════════════════
+function HabitsSection({data,update,showToast,scheme}){
+  const[newHabit,setNewHabit]=useState({name:"",emoji:"✓",color:"#a78bfa"});
+  const[showAdd,setShowAdd]=useState(false);
+  const acc=data.settings.accentColor;
+
+  const toggle=(habitId,dateStr)=>{
+    update(prev=>({...prev,habits:prev.habits.map(h=>h.id===habitId?{...h,completions:{...h.completions,[dateStr]:!h.completions[dateStr]}}:h)}));
+  };
+
+  const addHabit=()=>{
+    if(!newHabit.name.trim())return;
+    update(prev=>({...prev,habits:[...prev.habits,{id:uid(),...newHabit,completions:{}}]}));
+    setNewHabit({name:"",emoji:"✓",color:"#a78bfa"});setShowAdd(false);showToast("Habit added!");
+  };
+
+  const getStreak=habit=>{
+    let streak=0;
+    for(let i=0;i<365;i++){
+      const d=new Date();d.setDate(d.getDate()-i);
+      if(habit.completions[d.toISOString().slice(0,10)])streak++;else break;
+    }
+    return streak;
+  };
+
+  const days=Array.from({length:35},(_, i)=>{
+    const d=new Date();d.setDate(d.getDate()-(34-i));return d.toISOString().slice(0,10);
+  });
+
+  return(
+    <div style={{flex:1,overflowY:"auto",padding:"28px 32px"}} className="fade-in">
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}}>
+        <h2 style={{fontSize:"1.4em",fontWeight:800,letterSpacing:"-.03em"}}>Habit Tracker</h2>
+        <button className="btn btn-primary" onClick={()=>setShowAdd(v=>!v)}>+ Add Habit</button>
+      </div>
+
+      {showAdd&&(
+        <div style={{background:"rgba(255,255,255,.04)",border:`1px solid ${scheme.border}`,borderRadius:12,padding:"14px 18px",marginBottom:20,display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+          <input value={newHabit.emoji} onChange={e=>setNewHabit(p=>({...p,emoji:e.target.value}))} style={{width:48,textAlign:"center"}}/>
+          <input value={newHabit.name} onChange={e=>setNewHabit(p=>({...p,name:e.target.value}))} placeholder="Habit name" style={{flex:1,minWidth:120}} onKeyDown={e=>e.key==="Enter"&&addHabit()}/>
+          <select value={newHabit.color} onChange={e=>setNewHabit(p=>({...p,color:e.target.value}))} style={{width:90}}>
+            {["#a78bfa","#34d399","#60a5fa","#f472b6","#f59e0b"].map(c=><option key={c} value={c}>{c}</option>)}
+          </select>
+          <button className="btn btn-primary" onClick={addHabit}>Add</button>
+        </div>
+      )}
+
+      <div style={{overflowX:"auto"}}>
+        <div style={{minWidth:650}}>
+          <div style={{display:"flex",gap:4,marginBottom:8,marginLeft:260}}>
+            {days.map(d=>(
+              <div key={d} style={{width:24,textAlign:"center",fontSize:".6em",color:d===todayStr()?acc:scheme.muted,fontWeight:d===todayStr()?700:400}}>
+                {new Date(d+"T12:00:00").getDate()}
+              </div>
+            ))}
+          </div>
+          {data.habits.map(habit=>(
+            <div key={habit.id} style={{display:"flex",alignItems:"center",gap:4,marginBottom:8}}>
+              <div style={{width:260,display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+                <span style={{fontSize:"1.1em"}}>{habit.emoji}</span>
+                <span style={{fontSize:".85em",fontWeight:500,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{habit.name}</span>
+                <span style={{fontSize:".72em",color:habit.color,fontWeight:700,background:`${habit.color}22`,padding:"2px 8px",borderRadius:20}}>🔥{getStreak(habit)}</span>
+                <button className="btn" onClick={()=>update(prev=>({...prev,habits:prev.habits.filter(h=>h.id!==habit.id)}))} style={{padding:"2px 6px",fontSize:".7em",color:scheme.muted,opacity:.4}}>✕</button>
+              </div>
+              {days.map(d=>(
+                <button key={d} className="btn" onClick={()=>toggle(habit.id,d)}
+                  style={{width:24,height:24,borderRadius:4,background:habit.completions[d]?habit.color:"rgba(255,255,255,.06)",border:d===todayStr()?`1px solid ${habit.color}`:"1px solid transparent",transition:"all .15s",flexShrink:0}}/>
+              ))}
+            </div>
+          ))}
+          {data.habits.length===0&&<p style={{color:scheme.muted,textAlign:"center",padding:"32px"}}>No habits yet. Add one to start tracking!</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// FINANCE
+// ═══════════════════════════════════════════════════════
+function FinanceSection({data,update,showToast,scheme}){
+  const[form,setForm]=useState({desc:"",amount:"",type:"expense",category:"Food"});
+  const CATS=["Food","Transport","Shopping","Bills","Entertainment","Health","Income","Other"];
+  const CAT_COLS={Food:"#f59e0b",Transport:"#60a5fa",Shopping:"#f472b6",Bills:"#ef4444",Entertainment:"#a78bfa",Health:"#34d399",Income:"#10b981",Other:"#6b7280"};
+  const acc=data.settings.accentColor;
+
+  const add=()=>{
+    if(!form.desc||!form.amount)return;
+    update(prev=>({...prev,finance:{...prev.finance,transactions:[{id:uid(),...form,amount:parseFloat(form.amount),date:todayStr(),createdAt:Date.now()},...prev.finance.transactions]}}));
+    setForm({desc:"",amount:"",type:"expense",category:"Food"});showToast("Added!");
+  };
+
+  const totals=data.finance.transactions.reduce((a,t)=>{a[t.type]+=t.amount;return a;},{income:0,expense:0});
+  const balance=totals.income-totals.expense;
+
+  return(
+    <div style={{flex:1,overflowY:"auto",padding:"28px 32px"}} className="fade-in">
+      <h2 style={{fontSize:"1.4em",fontWeight:800,letterSpacing:"-.03em",marginBottom:24}}>Finance Tracker</h2>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:24}}>
+        {[{label:"Balance",value:balance,color:balance>=0?"#34d399":"#ef4444"},{label:"Income",value:totals.income,color:"#34d399"},{label:"Expenses",value:totals.expense,color:"#ef4444"}].map(s=>(
+          <div key={s.label} style={{background:"rgba(255,255,255,.04)",border:`1px solid ${scheme.border}`,borderRadius:12,padding:"18px 20px"}}>
+            <div style={{fontSize:".75em",color:scheme.muted,marginBottom:6}}>{s.label}</div>
+            <div style={{fontSize:"1.4em",fontWeight:800,color:s.color}}>₹{s.value.toLocaleString("en-IN")}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap"}}>
+        <input value={form.desc} onChange={e=>setForm(p=>({...p,desc:e.target.value}))} placeholder="Description" style={{flex:2,minWidth:140}}/>
+        <input type="number" value={form.amount} onChange={e=>setForm(p=>({...p,amount:e.target.value}))} placeholder="Amount (₹)" style={{flex:1,minWidth:100}}/>
+        <select value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))} style={{minWidth:100}}>
+          <option value="expense">Expense</option>
+          <option value="income">Income</option>
+        </select>
+        <select value={form.category} onChange={e=>setForm(p=>({...p,category:e.target.value}))} style={{minWidth:110}}>
+          {CATS.map(c=><option key={c} value={c}>{c}</option>)}
+        </select>
+        <button className="btn btn-primary" onClick={add}>Add</button>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {data.finance.transactions.slice(0,30).map(t=>(
+          <div key={t.id} style={{display:"flex",alignItems:"center",gap:12,padding:"11px 16px",background:"rgba(255,255,255,.03)",border:`1px solid ${scheme.border}`,borderRadius:10}}>
+            <div style={{width:34,height:34,borderRadius:10,background:`${CAT_COLS[t.category]||"#6b7280"}22`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:".75em",fontWeight:700,color:CAT_COLS[t.category],flexShrink:0}}>
+              {t.category.slice(0,2)}
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:600,fontSize:".9em"}}>{t.desc}</div>
+              <div style={{fontSize:".72em",color:scheme.muted}}>{t.category} · {formatDate(new Date(t.date))}</div>
+            </div>
+            <div style={{fontWeight:700,color:t.type==="income"?"#34d399":"#ef4444",fontSize:".95em"}}>
+              {t.type==="income"?"+":"-"}₹{t.amount.toLocaleString("en-IN")}
+            </div>
+            <button className="btn" onClick={()=>update(prev=>({...prev,finance:{...prev.finance,transactions:prev.finance.transactions.filter(x=>x.id!==t.id)}}))} style={{fontSize:".7em",color:scheme.muted,opacity:.4}}>✕</button>
+          </div>
+        ))}
+        {!data.finance.transactions.length&&<p style={{color:scheme.muted,textAlign:"center",padding:"32px"}}>No transactions yet</p>}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// READING LIST
+// ═══════════════════════════════════════════════════════
+function ReadingSection({data,update,showToast,scheme}){
+  const[form,setForm]=useState({title:"",url:"",notes:"",status:"unread"});
+  const[showAdd,setShowAdd]=useState(false);
+  const STATUS_COLORS={unread:"#6b6b8a",reading:"#f59e0b",done:"#34d399"};
+
+  const add=()=>{
+    if(!form.title.trim())return;
+    update(prev=>({...prev,readingList:[{id:uid(),...form,addedAt:Date.now()},...prev.readingList]}));
+    setForm({title:"",url:"",notes:"",status:"unread"});setShowAdd(false);showToast("Added!");
+  };
+
+  return(
+    <div style={{flex:1,overflowY:"auto",padding:"28px 32px"}} className="fade-in">
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}}>
+        <h2 style={{fontSize:"1.4em",fontWeight:800,letterSpacing:"-.03em"}}>Reading List</h2>
+        <button className="btn btn-primary" onClick={()=>setShowAdd(v=>!v)}>+ Add</button>
+      </div>
+      {showAdd&&(
+        <div style={{background:"rgba(255,255,255,.04)",border:`1px solid ${scheme.border}`,borderRadius:12,padding:"16px",marginBottom:20,display:"flex",flexDirection:"column",gap:10}}>
+          <input value={form.title} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="Title"/>
+          <input value={form.url} onChange={e=>setForm(p=>({...p,url:e.target.value}))} placeholder="URL (optional)"/>
+          <textarea value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} placeholder="Notes..." rows={2} style={{resize:"vertical"}}/>
+          <button className="btn btn-primary" onClick={add}>Save</button>
+        </div>
+      )}
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {data.readingList.map(item=>(
+          <div key={item.id} style={{background:"rgba(255,255,255,.03)",border:`1px solid ${scheme.border}`,borderRadius:12,padding:"14px 18px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <div style={{width:8,height:8,borderRadius:"50%",background:STATUS_COLORS[item.status],flexShrink:0}}/>
+              <div style={{flex:1,fontWeight:600,fontSize:".9em"}}>{item.title}</div>
+              <select value={item.status} onChange={e=>update(prev=>({...prev,readingList:prev.readingList.map(r=>r.id===item.id?{...r,status:e.target.value}:r)}))} style={{fontSize:".75em",padding:"3px 8px"}}>
+                <option value="unread">Unread</option>
+                <option value="reading">Reading</option>
+                <option value="done">Done</option>
+              </select>
+              <button className="btn" onClick={()=>update(prev=>({...prev,readingList:prev.readingList.filter(r=>r.id!==item.id)}))} style={{fontSize:".7em",color:scheme.muted,opacity:.4}}>✕</button>
+            </div>
+            {item.url&&<a href={item.url} target="_blank" rel="noopener noreferrer" style={{fontSize:".75em",color:data.settings.accentColor,textDecoration:"none",marginTop:4,display:"block"}}>{item.url}</a>}
+            {item.notes&&<p style={{fontSize:".78em",color:scheme.muted,marginTop:6}}>{item.notes}</p>}
+          </div>
+        ))}
+        {!data.readingList.length&&<p style={{color:scheme.muted,textAlign:"center",padding:"32px"}}>No items yet</p>}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// GOALS
+// ═══════════════════════════════════════════════════════
+function GoalsSection({data,update,showToast,scheme}){
+  const[showAdd,setShowAdd]=useState(false);
+  const[form,setForm]=useState({title:"",description:"",deadline:"",milestones:[]});
+  const[newMs,setNewMs]=useState("");
+  const acc=data.settings.accentColor;
+
+  const addGoal=()=>{
+    if(!form.title.trim())return;
+    update(prev=>({...prev,goals:[{id:uid(),...form,createdAt:Date.now(),done:false},...prev.goals]}));
+    setForm({title:"",description:"",deadline:"",milestones:[]});setShowAdd(false);showToast("Goal created!");
+  };
+
+  const toggleMs=(gid,mid)=>update(prev=>({...prev,goals:prev.goals.map(g=>g.id===gid?{...g,milestones:g.milestones.map(m=>m.id===mid?{...m,done:!m.done}:m)}:g)}));
+
+  return(
+    <div style={{flex:1,overflowY:"auto",padding:"28px 32px"}} className="fade-in">
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}}>
+        <h2 style={{fontSize:"1.4em",fontWeight:800,letterSpacing:"-.03em"}}>Goals</h2>
+        <button className="btn btn-primary" onClick={()=>setShowAdd(v=>!v)}>+ New Goal</button>
+      </div>
+      {showAdd&&(
+        <div style={{background:"rgba(255,255,255,.04)",border:`1px solid ${scheme.border}`,borderRadius:14,padding:"18px",marginBottom:24,display:"flex",flexDirection:"column",gap:10}}>
+          <input value={form.title} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="Goal title" style={{fontWeight:600}}/>
+          <textarea value={form.description} onChange={e=>setForm(p=>({...p,description:e.target.value}))} placeholder="Description..." rows={2} style={{resize:"none"}}/>
+          <input type="date" value={form.deadline} onChange={e=>setForm(p=>({...p,deadline:e.target.value}))}/>
+          <div style={{display:"flex",gap:8}}>
+            <input value={newMs} onChange={e=>setNewMs(e.target.value)} placeholder="Add milestone (Enter)..." style={{flex:1,fontSize:".85em"}}
+              onKeyDown={e=>{if(e.key==="Enter"&&newMs.trim()){setForm(p=>({...p,milestones:[...p.milestones,{id:uid(),text:newMs,done:false}]}));setNewMs("");}}}/>
+          </div>
+          {form.milestones.map(m=><div key={m.id} style={{fontSize:".82em",color:scheme.muted,paddingLeft:8}}>◻ {m.text}</div>)}
+          <button className="btn btn-primary" onClick={addGoal}>Create Goal</button>
+        </div>
+      )}
+      <div style={{display:"flex",flexDirection:"column",gap:14}}>
+        {data.goals.map(goal=>{
+          const pct=goal.milestones.length?Math.round(goal.milestones.filter(m=>m.done).length/goal.milestones.length*100):0;
+          return(
+            <div key={goal.id} style={{background:"rgba(255,255,255,.03)",border:`1px solid ${scheme.border}`,borderRadius:14,padding:"18px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                <div style={{flex:1,fontWeight:700,fontSize:"1em"}}>{goal.title}</div>
+                {goal.deadline&&<span style={{fontSize:".72em",color:scheme.muted}}>{formatDate(new Date(goal.deadline))}</span>}
+                <span style={{fontSize:".78em",color:acc,fontWeight:700}}>{pct}%</span>
+                <button className="btn" onClick={()=>update(prev=>({...prev,goals:prev.goals.filter(g=>g.id!==goal.id)}))} style={{fontSize:".7em",color:scheme.muted,opacity:.4}}>✕</button>
+              </div>
+              {goal.description&&<p style={{fontSize:".82em",color:scheme.muted,marginBottom:10}}>{goal.description}</p>}
+              {goal.milestones.length>0&&(
+                <>
+                  <div style={{height:4,background:"rgba(255,255,255,.1)",borderRadius:4,marginBottom:10}}>
+                    <div style={{width:`${pct}%`,height:"100%",background:acc,borderRadius:4,transition:"width .4s"}}/>
+                  </div>
+                  {goal.milestones.map(m=>(
+                    <div key={m.id} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0"}}>
+                      <button className="btn" onClick={()=>toggleMs(goal.id,m.id)}
+                        style={{width:16,height:16,borderRadius:4,border:`2px solid ${m.done?acc:scheme.border}`,background:m.done?acc:"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:".6em",color:"#fff"}}>
+                        {m.done&&"✓"}
+                      </button>
+                      <span style={{fontSize:".84em",textDecoration:m.done?"line-through":"none",opacity:m.done?.5:1}}>{m.text}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          );
+        })}
+        {!data.goals.length&&<p style={{color:scheme.muted,textAlign:"center",padding:"32px"}}>No goals yet. Dream big ✦</p>}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// MOOD
+// ═══════════════════════════════════════════════════════
+function MoodSection({data,update,showToast,scheme}){
+  const[mood,setMood]=useState(3);
+  const[note,setNote]=useState("");
+  const MOODS=["😢","😞","😐","😊","🤩"];
+  const LABELS=["Awful","Bad","Okay","Good","Amazing"];
+  const acc=data.settings.accentColor;
+
+  const log=()=>{
+    update(prev=>({...prev,moodLog:[{id:uid(),mood,note,date:todayStr(),createdAt:Date.now()},...prev.moodLog]}));
+    setNote("");showToast("Mood logged!");
+  };
+
+  return(
+    <div style={{flex:1,overflowY:"auto",padding:"28px 32px"}} className="fade-in">
+      <h2 style={{fontSize:"1.4em",fontWeight:800,letterSpacing:"-.03em",marginBottom:24}}>Mood Journal</h2>
+      <div style={{background:"rgba(255,255,255,.04)",border:`1px solid ${scheme.border}`,borderRadius:16,padding:"24px",marginBottom:24}}>
+        <div style={{textAlign:"center",marginBottom:20}}>
+          <div style={{fontSize:"3.5em",marginBottom:8}}>{MOODS[mood-1]}</div>
+          <div style={{fontWeight:700,color:acc}}>{LABELS[mood-1]}</div>
+        </div>
+        <div style={{display:"flex",justifyContent:"center",gap:12,marginBottom:20}}>
+          {MOODS.map((m,i)=>(
+            <button key={i} className="btn" onClick={()=>setMood(i+1)}
+              style={{fontSize:"1.8em",padding:8,borderRadius:12,background:mood===i+1?"rgba(255,255,255,.1)":"transparent",border:mood===i+1?`2px solid ${acc}`:"2px solid transparent"}}>
+              {m}
+            </button>
+          ))}
+        </div>
+        <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="How are you feeling?" rows={3} style={{width:"100%",resize:"none",marginBottom:12}}/>
+        <button className="btn btn-primary" onClick={log} style={{width:"100%"}}>Log Mood</button>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {data.moodLog.slice(0,10).map(entry=>(
+          <div key={entry.id} style={{display:"flex",gap:12,padding:"12px 16px",background:"rgba(255,255,255,.03)",border:`1px solid ${scheme.border}`,borderRadius:10}}>
+            <span style={{fontSize:"1.5em"}}>{MOODS[entry.mood-1]}</span>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:600,fontSize:".85em",color:acc}}>{LABELS[entry.mood-1]} · {formatDate(new Date(entry.date))}</div>
+              {entry.note&&<p style={{fontSize:".82em",color:scheme.muted,marginTop:4}}>{entry.note}</p>}
+            </div>
+          </div>
+        ))}
+        {!data.moodLog.length&&<p style={{color:scheme.muted,textAlign:"center",padding:"20px"}}>No entries yet</p>}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// FLASHCARDS
+// ═══════════════════════════════════════════════════════
+function FlashcardsSection({data,update,showToast,scheme}){
+  const[showAdd,setShowAdd]=useState(false);
+  const[form,setForm]=useState({front:"",back:"",deck:"General"});
+  const[study,setStudy]=useState(false);
+  const[idx,setIdx]=useState(0);
+  const[flipped,setFlipped]=useState(false);
+  const acc=data.settings.accentColor;
+
+  const add=()=>{
+    if(!form.front.trim()||!form.back.trim())return;
+    update(prev=>({...prev,flashcards:[{id:uid(),...form,createdAt:Date.now()},...prev.flashcards]}));
+    setForm({front:"",back:"",deck:"General"});showToast("Card added!");
+  };
+
+  const cards=data.flashcards;
+  const card=cards[idx];
+
+  if(study&&cards.length>0)return(
+    <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32}} className="fade-in">
+      <div style={{marginBottom:20,display:"flex",gap:10,alignItems:"center"}}>
+        <span style={{color:scheme.muted,fontSize:".85em"}}>{idx+1}/{cards.length}</span>
+        <button className="btn btn-ghost" onClick={()=>setStudy(false)} style={{fontSize:".82em"}}>Exit Study</button>
+      </div>
+      <div onClick={()=>setFlipped(v=>!v)}
+        style={{cursor:"pointer",width:"100%",maxWidth:480,minHeight:220,background:"rgba(255,255,255,.06)",border:`1px solid ${scheme.border}`,borderRadius:20,display:"flex",alignItems:"center",justifyContent:"center",padding:32,textAlign:"center"}}>
+        <div>
+          <div style={{fontSize:"1.1em",fontWeight:flipped?400:600,color:flipped?scheme.muted:scheme.text}}>{flipped?card.back:card.front}</div>
+          <div style={{fontSize:".72em",color:scheme.muted,marginTop:12}}>{flipped?"Answer — click to flip back":"Click to reveal answer"}</div>
+        </div>
+      </div>
+      <div style={{display:"flex",gap:12,marginTop:24}}>
+        <button className="btn btn-ghost" onClick={()=>{setIdx(i=>Math.max(0,i-1));setFlipped(false);}}>← Prev</button>
+        <button className="btn btn-ghost" onClick={()=>setFlipped(v=>!v)}>Flip</button>
+        <button className="btn btn-primary" onClick={()=>{setIdx(i=>(i+1)%cards.length);setFlipped(false);}}>Next →</button>
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{flex:1,overflowY:"auto",padding:"28px 32px"}} className="fade-in">
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:24}}>
+        <h2 style={{fontSize:"1.4em",fontWeight:800,letterSpacing:"-.03em",flex:1}}>Flashcards</h2>
+        {cards.length>0&&<button className="btn btn-ghost" onClick={()=>{setStudy(true);setIdx(0);setFlipped(false);}} style={{fontSize:".85em"}}>▶ Study ({cards.length})</button>}
+        <button className="btn btn-primary" onClick={()=>setShowAdd(v=>!v)}>+ Add Card</button>
+      </div>
+      {showAdd&&(
+        <div style={{background:"rgba(255,255,255,.04)",border:`1px solid ${scheme.border}`,borderRadius:12,padding:"16px",marginBottom:20,display:"flex",flexDirection:"column",gap:10}}>
+          <input value={form.deck} onChange={e=>setForm(p=>({...p,deck:e.target.value}))} placeholder="Deck name"/>
+          <textarea value={form.front} onChange={e=>setForm(p=>({...p,front:e.target.value}))} placeholder="Question / Front" rows={2} style={{resize:"none"}}/>
+          <textarea value={form.back} onChange={e=>setForm(p=>({...p,back:e.target.value}))} placeholder="Answer / Back" rows={2} style={{resize:"none"}}/>
+          <button className="btn btn-primary" onClick={add}>Add Card</button>
+        </div>
+      )}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
+        {cards.map(c=>(
+          <div key={c.id} style={{background:"rgba(255,255,255,.04)",border:`1px solid ${scheme.border}`,borderRadius:12,padding:"16px"}}>
+            <div style={{fontSize:".68em",color:acc,fontWeight:700,marginBottom:6}}>{c.deck}</div>
+            <div style={{fontWeight:600,fontSize:".88em",marginBottom:8}}>{c.front}</div>
+            <div style={{fontSize:".8em",color:scheme.muted,borderTop:`1px solid ${scheme.border}`,paddingTop:8}}>{c.back}</div>
+            <button className="btn" onClick={()=>update(prev=>({...prev,flashcards:prev.flashcards.filter(f=>f.id!==c.id)}))} style={{marginTop:8,fontSize:".7em",color:scheme.muted,opacity:.4}}>Delete</button>
+          </div>
+        ))}
+        {!cards.length&&<p style={{color:scheme.muted,padding:"20px",gridColumn:"1/-1"}}>No flashcards yet</p>}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// WHITEBOARD
+// ═══════════════════════════════════════════════════════
+function WhiteboardSection({scheme}){
+  const canvasRef=useRef(null);
+  const[drawing,setDrawing]=useState(false);
+  const[color,setColor]=useState("#a78bfa");
+  const[size,setSize]=useState(3);
+  const[tool,setTool]=useState("pen");
+  const lastPos=useRef(null);
+
+  useEffect(()=>{
+    const canvas=canvasRef.current;
+    if(!canvas)return;
+    canvas.width=canvas.offsetWidth;
+    canvas.height=canvas.offsetHeight;
+    const ctx=canvas.getContext("2d");
+    ctx.fillStyle=scheme.bg;ctx.fillRect(0,0,canvas.width,canvas.height);
+  },[]);
+
+  const getPos=e=>{
+    const r=canvasRef.current.getBoundingClientRect();
+    const touch=e.touches?.[0];
+    return{x:(touch||e).clientX-r.left,y:(touch||e).clientY-r.top};
+  };
+
+  const start=e=>{setDrawing(true);lastPos.current=getPos(e);};
+  const end=()=>{setDrawing(false);lastPos.current=null;};
+  const draw=e=>{
+    if(!drawing)return;e.preventDefault();
+    const ctx=canvasRef.current.getContext("2d");
+    const pos=getPos(e);
+    ctx.beginPath();
+    ctx.strokeStyle=tool==="eraser"?scheme.bg:color;
+    ctx.lineWidth=tool==="eraser"?20:size;
+    ctx.lineCap="round";ctx.lineJoin="round";
+    ctx.moveTo(lastPos.current.x,lastPos.current.y);
+    ctx.lineTo(pos.x,pos.y);ctx.stroke();
+    lastPos.current=pos;
+  };
+
+  const clear=()=>{const ctx=canvasRef.current.getContext("2d");ctx.fillStyle=scheme.bg;ctx.fillRect(0,0,canvasRef.current.width,canvasRef.current.height);};
+  const save=()=>{const a=document.createElement("a");a.href=canvasRef.current.toDataURL();a.download="whiteboard.png";a.click();};
+  const COLORS=["#a78bfa","#f472b6","#34d399","#60a5fa","#f59e0b","#ef4444","#ffffff","#000000"];
+
+  return(
+    <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+      <div style={{display:"flex",gap:10,padding:"10px 16px",borderBottom:`1px solid ${scheme.border}`,alignItems:"center",flexWrap:"wrap",flexShrink:0}}>
+        {COLORS.map(c=>(
+          <button key={c} className="btn" onClick={()=>{setColor(c);setTool("pen");}}
+            style={{width:24,height:24,borderRadius:"50%",background:c,border:color===c&&tool==="pen"?"3px solid #fff":"2px solid rgba(255,255,255,.2)",flexShrink:0}}/>
+        ))}
+        <div style={{borderLeft:`1px solid ${scheme.border}`,margin:"0 4px",height:20}}/>
+        <span style={{fontSize:".75em",color:scheme.muted}}>Size:</span>
+        <input type="range" min={1} max={20} value={size} onChange={e=>setSize(+e.target.value)} style={{width:80,background:"transparent"}}/>
+        <button className="btn btn-ghost" onClick={()=>setTool(t=>t==="eraser"?"pen":"eraser")}
+          style={{fontSize:".8em",background:tool==="eraser"?"var(--accent,#a78bfa)":"transparent",color:tool==="eraser"?"#fff":scheme.text,borderRadius:6,padding:"4px 12px"}}>
+          {tool==="eraser"?"✎ Pen":"◻ Eraser"}
+        </button>
+        <button className="btn btn-ghost" onClick={clear} style={{fontSize:".8em"}}>Clear</button>
+        <button className="btn btn-ghost" onClick={save} style={{fontSize:".8em"}}>↓ Save</button>
+      </div>
+      <canvas ref={canvasRef} style={{flex:1,cursor:tool==="eraser"?"cell":"crosshair",touchAction:"none"}}
+        onMouseDown={start} onMouseUp={end} onMouseMove={draw} onMouseLeave={end}
+        onTouchStart={start} onTouchEnd={end} onTouchMove={draw}/>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// AI PANEL
+// ═══════════════════════════════════════════════════════
+function AIPanel({data,onClose,scheme,acc}){
+  const[messages,setMessages]=useState([{role:"assistant",content:"Hi! I'm your AI assistant ✦\n\nI can see your notes, tasks, and schedule. Ask me anything — I'm here to help!"}]);
+  const[input,setInput]=useState("");
+  const[loading,setLoading]=useState(false);
+  const endRef=useRef(null);
+
+  useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[messages]);
+
+  const send=async()=>{
+    if(!input.trim()||loading)return;
+    const userMsg=input.trim();setInput("");
+    setMessages(prev=>[...prev,{role:"user",content:userMsg}]);
+    setLoading(true);
+
+    const sys=`You are a helpful AI assistant in ZenSpace productivity app.
+User context:
+- Notebooks: ${data.notebooks.map(n=>n.name+"("+n.pages.length+" pages)").join(", ")}
+- Pending todos: ${data.todos.filter(t=>!t.done).map(t=>t.text).slice(0,8).join(", ")||"none"}
+- Today's events: ${data.calendarEvents.filter(e=>e.date===todayStr()).map(e=>e.title+" at "+e.time).join(", ")||"none"}
+- Habits done today: ${data.habits.filter(h=>h.completions[todayStr()]).map(h=>h.name).join(", ")||"none"}
+- Focus sessions today: ${data.pomodoroHistory.filter(s=>s.date===todayStr()).length}
+Be concise, helpful and friendly. Use the context when relevant.`;
+
+    try{
+      const conv=messages.filter((_,i)=>i>0).concat({role:"user",content:userMsg});
+      const res=await fetch("https://api.anthropic.com/v1/messages",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:sys,messages:conv.map(m=>({role:m.role,content:m.content}))})
+      });
+      const d=await res.json();
+      const reply=d.content?.find(b=>b.type==="text")?.text||"Sorry, I had trouble with that.";
+      setMessages(prev=>[...prev,{role:"assistant",content:reply}]);
+    }catch{
+      setMessages(prev=>[...prev,{role:"assistant",content:"I need an internet connection to respond. Everything else in ZenSpace works offline!"}]);
+    }
+    setLoading(false);
+  };
+
+  return(
+    <div style={{position:"fixed",top:0,right:0,bottom:0,width:360,background:scheme.bg==="light"?"rgba(245,244,240,.97)":"rgba(10,10,14,.97)",borderLeft:`1px solid ${scheme.border}`,zIndex:999,display:"flex",flexDirection:"column",backdropFilter:"blur(20px)"}} className="slide-in">
+      <div style={{display:"flex",alignItems:"center",padding:"18px 20px",borderBottom:`1px solid ${scheme.border}`}}>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:800,letterSpacing:"-.02em"}}>AI Assistant ✦</div>
+          <div style={{fontSize:".72em",color:scheme.muted}}>Powered by Claude</div>
+        </div>
+        <button className="btn btn-ghost" onClick={onClose} style={{fontSize:"1.1em"}}>✕</button>
+      </div>
+      <div style={{flex:1,overflowY:"auto",padding:"20px",display:"flex",flexDirection:"column",gap:14}}>
+        {messages.map((m,i)=>(
+          <div key={i} style={{display:"flex",flexDirection:"column",alignItems:m.role==="user"?"flex-end":"flex-start"}}>
+            <div style={{maxWidth:"88%",padding:"11px 15px",borderRadius:m.role==="user"?"18px 18px 4px 18px":"18px 18px 18px 4px",background:m.role==="user"?acc:"rgba(255,255,255,.08)",fontSize:".87em",lineHeight:1.6,color:m.role==="user"?"#fff":scheme.text,whiteSpace:"pre-wrap"}}>
+              {m.content}
+            </div>
+          </div>
+        ))}
+        {loading&&(
+          <div style={{display:"flex",alignItems:"center",gap:8,color:scheme.muted,fontSize:".85em"}}>
+            <span style={{animation:"pulse 1.2s infinite"}}>✦</span> Thinking...
+          </div>
+        )}
+        <div ref={endRef}/>
+      </div>
+      <div style={{padding:"14px 16px",borderTop:`1px solid ${scheme.border}`,display:"flex",gap:8}}>
+        <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&send()}
+          placeholder="Ask anything..." style={{flex:1,padding:"10px 14px"}} autoFocus/>
+        <button className="btn btn-primary" onClick={send} disabled={loading} style={{padding:"10px 16px"}}>Send</button>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════════
+function SettingsPanel({data,update,onClose,showToast,scheme}){
+  const s=data.settings;
+  const set=(key,val)=>update(prev=>({...prev,settings:{...prev.settings,[key]:val}}));
+  const FONTS=["Outfit","Poppins","Raleway","DM Sans","Nunito","Lato","Merriweather","JetBrains Mono"];
+  const ACCENTS=["#a78bfa","#f472b6","#34d399","#60a5fa","#f59e0b","#ef4444","#06b6d4","#fb923c"];
+  const SCHEMES=["default","nord","dracula","catppuccin","solarized","light"];
+
+  const importData=e=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{try{update(()=>JSON.parse(ev.target.result));showToast("Data imported!");}catch{showToast("Invalid file","error");}};
+    reader.readAsText(file);
+  };
+
+  return(
+    <div style={{position:"fixed",inset:0,zIndex:9997,background:"rgba(0,0,0,.6)",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center"}}
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:scheme.surface,border:`1px solid ${scheme.border}`,borderRadius:20,width:"90%",maxWidth:540,maxHeight:"88vh",overflow:"hidden",display:"flex",flexDirection:"column",color:scheme.text}} className="fade-in">
+        <div style={{display:"flex",alignItems:"center",padding:"20px 24px",borderBottom:`1px solid ${scheme.border}`}}>
+          <h2 style={{fontWeight:800,flex:1,letterSpacing:"-.03em"}}>Settings</h2>
+          <button className="btn btn-ghost" onClick={onClose} style={{color:scheme.muted}}>✕</button>
+        </div>
+        <div style={{overflowY:"auto",padding:"20px 24px",display:"flex",flexDirection:"column",gap:24}}>
+
+          <SettingSection title="Color Scheme">
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {SCHEMES.map(sc=>(
+                <button key={sc} className="btn" onClick={()=>set("colorScheme",sc)}
+                  style={{padding:"6px 14px",borderRadius:20,background:s.colorScheme===sc?data.settings.accentColor:"rgba(255,255,255,.08)",color:s.colorScheme===sc?"#fff":scheme.text,fontSize:".8em",fontWeight:s.colorScheme===sc?700:400}}>
+                  {sc.charAt(0).toUpperCase()+sc.slice(1)}
+                </button>
+              ))}
+            </div>
+          </SettingSection>
+
+          <SettingSection title="Accent Color">
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+              {ACCENTS.map(c=>(
+                <button key={c} className="btn" onClick={()=>set("accentColor",c)}
+                  style={{width:28,height:28,borderRadius:"50%",background:c,border:s.accentColor===c?"3px solid #fff":"2px solid rgba(255,255,255,.2)"}}/>
+              ))}
+              <input type="color" value={s.accentColor} onChange={e=>set("accentColor",e.target.value)} style={{width:36,height:28,padding:2,borderRadius:8,cursor:"pointer"}}/>
+            </div>
+          </SettingSection>
+
+          <SettingSection title="Font">
+            <select value={s.font} onChange={e=>set("font",e.target.value)} style={{width:"100%"}}>
+              {FONTS.map(f=><option key={f} value={f}>{f}</option>)}
+            </select>
+          </SettingSection>
+
+          <SettingSection title="Density">
+            <div style={{display:"flex",gap:8}}>
+              {["compact","comfortable","cozy"].map(d=>(
+                <button key={d} className="btn" onClick={()=>set("density",d)}
+                  style={{flex:1,padding:"7px",borderRadius:10,background:s.density===d?data.settings.accentColor:"rgba(255,255,255,.08)",color:s.density===d?"#fff":scheme.text,fontSize:".8em",fontWeight:s.density===d?700:400}}>
+                  {d.charAt(0).toUpperCase()+d.slice(1)}
+                </button>
+              ))}
+            </div>
+          </SettingSection>
+
+          <SettingSection title="Sidebar Style">
+            <div style={{display:"flex",gap:8}}>
+              {["dark","surface"].map(opt=>(
+                <button key={opt} className="btn" onClick={()=>set("sidebarColor",opt)}
+                  style={{flex:1,padding:"7px",borderRadius:10,background:s.sidebarColor===opt?data.settings.accentColor:"rgba(255,255,255,.08)",color:s.sidebarColor===opt?"#fff":scheme.text,fontSize:".8em",fontWeight:s.sidebarColor===opt?700:400}}>
+                  {opt.charAt(0).toUpperCase()+opt.slice(1)}
+                </button>
+              ))}
+            </div>
+          </SettingSection>
+
+          <SettingSection title="Background Image">
+            <input type="url" value={s.bgImage||""} onChange={e=>set("bgImage",e.target.value||null)} placeholder="Paste any image URL..." style={{width:"100%"}}/>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:8}}>
+              {[
+                "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1920&q=80",
+                "https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3?w=1920&q=80",
+                "https://images.unsplash.com/photo-1505506874110-6a7a69069a08?w=1920&q=80"
+              ].map((url,i)=>(
+                <button key={i} className="btn" onClick={()=>set("bgImage",url)}
+                  style={{width:72,height:46,borderRadius:8,backgroundImage:`url(${url})`,backgroundSize:"cover",border:s.bgImage===url?`2px solid ${data.settings.accentColor}`:"2px solid transparent"}}/>
+              ))}
+              {s.bgImage&&<button className="btn btn-ghost" onClick={()=>set("bgImage",null)} style={{fontSize:".8em"}}>Clear</button>}
+            </div>
+          </SettingSection>
+
+          <SettingSection title="Accessibility">
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:".88em"}}>Larger Text Mode</span>
+              <button className="btn" onClick={()=>set("accessibilityMode",!s.accessibilityMode)}
+                style={{width:44,height:24,borderRadius:12,background:s.accessibilityMode?data.settings.accentColor:"rgba(255,255,255,.2)",position:"relative",flexShrink:0}}>
+                <div style={{width:18,height:18,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:s.accessibilityMode?23:3,transition:"left .2s"}}/>
+              </button>
+            </div>
+          </SettingSection>
+
+          <SettingSection title="Custom CSS">
+            <textarea value={s.customCSS||""} onChange={e=>set("customCSS",e.target.value)}
+              placeholder=":root { --accent: #ff6b6b; } /* Override anything */"
+              rows={4} style={{width:"100%",fontFamily:"monospace",fontSize:".82em",resize:"vertical"}}/>
+          </SettingSection>
+
+          <SettingSection title="Data Management">
+            <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+              <button className="btn btn-primary" onClick={()=>{const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`zenspace_backup_${todayStr()}.json`;a.click();URL.revokeObjectURL(url);showToast("Exported!");}} style={{fontSize:".85em"}}>
+                ↓ Export Data
+              </button>
+              <label style={{cursor:"pointer",background:"rgba(255,255,255,.07)",color:scheme.text,padding:"8px 18px",borderRadius:8,fontSize:".85em",fontFamily:"inherit"}}>
+                ↑ Import Data
+                <input type="file" accept=".json" onChange={importData} style={{display:"none"}}/>
+              </label>
+              <button className="btn btn-ghost" onClick={()=>{if(confirm("This will reset ALL your data. Are you sure?")){{update(defaultData);showToast("Data reset");onClose();}}}} style={{fontSize:".85em",color:"#ef4444"}}>
+                ⚠ Reset All
+              </button>
+            </div>
+          </SettingSection>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SettingSection({title,children}){
+  return(
+    <div>
+      <div style={{fontSize:".72em",fontWeight:700,color:"var(--muted,#6b6b8a)",textTransform:"uppercase",letterSpacing:".1em",marginBottom:12}}>{title}</div>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>{children}</div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// COMMAND PALETTE
+// ═══════════════════════════════════════════════════════
+function CommandPalette({data,onClose,setActiveSection,setActiveNotebook,setActivePage,scheme}){
+  const[q,setQ]=useState("");
+  const inputRef=useRef(null);
+  useEffect(()=>{inputRef.current?.focus();},[]);
+
+  const allCmds=[
+    {label:"Go to Home",icon:"⌂",action:()=>setActiveSection("home")},
+    {label:"Go to Notes",icon:"✦",action:()=>setActiveSection("notes")},
+    {label:"Go to To-Do",icon:"✓",action:()=>setActiveSection("todos")},
+    {label:"Go to Calendar",icon:"◫",action:()=>setActiveSection("calendar")},
+    {label:"Go to Focus Timer",icon:"◎",action:()=>setActiveSection("timer")},
+    {label:"Go to Habits",icon:"⬡",action:()=>setActiveSection("habits")},
+    {label:"Go to Finance",icon:"◈",action:()=>setActiveSection("finance")},
+    {label:"Go to Goals",icon:"◉",action:()=>setActiveSection("goals")},
+    {label:"Go to Mood Journal",icon:"◌",action:()=>setActiveSection("mood")},
+    {label:"Go to Reading List",icon:"◻",action:()=>setActiveSection("reading")},
+    {label:"Go to Flashcards",icon:"◧",action:()=>setActiveSection("flashcards")},
+    {label:"Go to Whiteboard",icon:"◪",action:()=>setActiveSection("whiteboard")},
+    ...data.notebooks.flatMap(nb=>nb.pages.map(p=>({
+      label:`Note: ${p.title}`,icon:"✦",
+      action:()=>{setActiveSection("notes");setActiveNotebook(nb.id);setActivePage(p.id);}
+    })))
+  ];
+
+  const filtered=allCmds.filter(c=>!q||c.label.toLowerCase().includes(q.toLowerCase())).slice(0,10);
+
+  return(
+    <div style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,.6)",backdropFilter:"blur(8px)",display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:120}}
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:scheme.surface,border:`1px solid ${scheme.border}`,borderRadius:16,width:"90%",maxWidth:500,overflow:"hidden",color:scheme.text}} className="fade-in">
+        <div style={{display:"flex",alignItems:"center",padding:"14px 18px",borderBottom:`1px solid ${scheme.border}`,gap:10}}>
+          <span style={{color:scheme.muted}}>⌕</span>
+          <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)}
+            placeholder="Jump to any section or note..."
+            style={{flex:1,background:"transparent",border:"none",fontSize:".95em",color:scheme.text}}
+            onKeyDown={e=>{
+              if(e.key==="Escape")onClose();
+              if(e.key==="Enter"&&filtered[0]){filtered[0].action();onClose();}
+            }}/>
+          <span style={{fontSize:".72em",color:scheme.muted,background:"rgba(255,255,255,.08)",padding:"2px 8px",borderRadius:6}}>ESC</span>
+        </div>
+        <div style={{maxHeight:320,overflowY:"auto"}}>
+          {filtered.map((c,i)=>(
+            <button key={i} className="btn" onClick={()=>{c.action();onClose();}}
+              style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"12px 18px",textAlign:"left",fontSize:".88em",borderBottom:`1px solid rgba(255,255,255,.03)`,color:scheme.text}}
+              onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,.07)"}
+              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              <span style={{color:data.settings.accentColor}}>{c.icon}</span>
+              <span>{c.label}</span>
+            </button>
+          ))}
+          {!filtered.length&&<div style={{padding:"20px",textAlign:"center",color:scheme.muted,fontSize:".88em"}}>No results</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
