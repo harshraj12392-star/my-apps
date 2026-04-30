@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NCERT Library</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Noto+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --card: #21253a;
+  --border: #2e3348;
+  --accent: #f7c948;
+  --accent2: #4f8ef7;
+  --accent3: #f7694f;
+  --text: #e8eaf6;
+  --muted: #7b82a0;
+  --radius: 14px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Noto Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* Header */
+.header {
+  background: linear-gradient(135deg, #1a1d27 0%, #12151f 100%);
+  border-bottom: 1px solid var(--border);
+  padding: 18px 24px;
+  display: flex; align-items: center; gap: 14px;
+  position: sticky; top: 0; z-index: 100;
+}
+.header-logo { font-size: 2rem; }
+.header-title { font-family: 'Baloo 2', cursive; font-size: 1.5rem; font-weight: 800; color: var(--accent); }
+.header-sub { font-size: .75rem; color: var(--muted); margin-top: -2px; }
+.header-right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+
+/* Search */
+.search-wrap { position: relative; }
+.search-wrap input {
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 8px 14px 8px 36px; color: var(--text); font-size: .85rem; width: 220px;
+  outline: none; transition: border .2s;
+}
+.search-wrap input:focus { border-color: var(--accent2); }
+.search-wrap .si { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 1rem; }
+
+/* Class tabs */
+.class-tabs {
+  display: flex; gap: 8px; padding: 20px 24px 0;
+  overflow-x: auto; scrollbar-width: none;
+}
+.class-tabs::-webkit-scrollbar { display: none; }
+.tab {
+  padding: 8px 22px; border-radius: 30px; font-family: 'Baloo 2', cursive;
+  font-size: .9rem; font-weight: 700; cursor: pointer;
+  border: 1.5px solid var(--border); background: var(--surface);
+  color: var(--muted); transition: all .2s; white-space: nowrap;
+}
+.tab.active { background: var(--accent); color: #111; border-color: var(--accent); }
+.tab:hover:not(.active) { border-color: var(--accent2); color: var(--text); }
+
+/* Content */
+.content { padding: 20px 24px 40px; }
+
+/* Subject filter */
+.filter-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+.filter-btn {
+  padding: 5px 14px; border-radius: 20px; font-size: .78rem; font-weight: 600;
+  border: 1px solid var(--border); background: transparent; color: var(--muted);
+  cursor: pointer; transition: all .2s;
+}
+.filter-btn.active { background: var(--accent2); color: #fff; border-color: var(--accent2); }
+.filter-btn:hover:not(.active) { border-color: var(--accent2); color: var(--text); }
+
+/* Book grid */
+.book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+
+.book-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden; cursor: pointer; transition: transform .2s, border-color .2s, box-shadow .2s;
+}
+.book-card:hover { transform: translateY(-3px); border-color: var(--accent2); box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+.book-card-top {
+  padding: 20px; display: flex; align-items: center; gap: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.book-icon {
+  width: 52px; height: 52px; border-radius: 12px; display: flex; align-items: center;
+  justify-content: center; font-size: 1.6rem; flex-shrink: 0;
+}
+.book-name { font-family: 'Baloo 2', cursive; font-size: 1rem; font-weight: 700; line-height: 1.2; }
+.book-subject { font-size: .75rem; color: var(--muted); margin-top: 3px; }
+.lang-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  font-size: .68rem; font-weight: 600; margin-top: 5px;
+}
+.book-card-bottom { padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
+.ch-count { font-size: .78rem; color: var(--muted); }
+.card-btns { display: flex; gap: 6px; }
+.btn-view, .btn-dl {
+  padding: 5px 12px; border-radius: 8px; font-size: .75rem; font-weight: 600;
+  cursor: pointer; border: none; transition: all .2s;
+}
+.btn-view { background: var(--accent2); color: #fff; }
+.btn-view:hover { background: #3a7ae0; }
+.btn-dl { background: var(--border); color: var(--text); }
+.btn-dl:hover { background: var(--accent); color: #111; }
+
+/* Subject colors */
+.sub-maths { background: linear-gradient(135deg, #1a3a6e, #0d2044); }
+.sub-english { background: linear-gradient(135deg, #1a4a2e, #0d2a18); }
+.sub-hindi { background: linear-gradient(135deg, #4a1a1a, #2a0d0d); }
+.sub-science { background: linear-gradient(135deg, #1a3a4a, #0d202a); }
+.sub-sst { background: linear-gradient(135deg, #3a2a1a, #2a1a0d); }
+.sub-sanskrit { background: linear-gradient(135deg, #2a1a4a, #1a0d2a); }
+
+.badge-en { background: rgba(79,142,247,.2); color: #4f8ef7; }
+.badge-hi { background: rgba(247,105,79,.2); color: #f7a04f; }
+.badge-sa { background: rgba(130,79,247,.2); color: #b47ff7; }
+
+/* Modal */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 200;
+  display: none; align-items: center; justify-content: center; padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
+  width: 100%; max-width: 560px; max-height: 90vh; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.modal-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--border); }
+.modal-title { font-family: 'Baloo 2', cursive; font-size: 1.2rem; font-weight: 800; }
+.modal-sub { font-size: .8rem; color: var(--muted); margin-top: 3px; }
+.modal-close {
+  float: right; background: var(--border); border: none; color: var(--text);
+  width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 1rem;
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-body { flex: 1; overflow-y: auto; padding: 16px 24px; }
+
+/* Chapter list */
+.ch-section-title { font-size: .75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; margin-top: 16px; }
+.ch-section-title:first-child { margin-top: 0; }
+.full-book-btn {
+  display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+  background: linear-gradient(135deg, var(--accent2) 0%, #2a5cbf 100%);
+  border-radius: 12px; cursor: pointer; border: none; color: #fff;
+  width: 100%; text-align: left; margin-bottom: 4px; transition: opacity .2s;
+}
+.full-book-btn:hover { opacity: .9; }
+.full-book-btn .fb-icon { font-size: 1.4rem; }
+.full-book-btn .fb-text .fb-title { font-family: 'Baloo 2', cursive; font-size: .95rem; font-weight: 700; }
+.full-book-btn .fb-text .fb-sub { font-size: .75rem; opacity: .8; }
+.full-book-btn .fb-dl { margin-left: auto; font-size: 1.2rem; }
+
+.ch-item {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+  border-radius: 10px; cursor: pointer; border: 1px solid transparent;
+  transition: all .15s; margin-bottom: 4px;
+}
+.ch-item:hover { background: var(--card); border-color: var(--border); }
+.ch-num {
+  width: 28px; height: 28px; border-radius: 8px; background: var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .75rem; font-weight: 700; color: var(--muted); flex-shrink: 0;
+}
+.ch-name { font-size: .85rem; flex: 1; }
+.ch-actions { display: flex; gap: 6px; margin-left: auto; }
+.ch-btn {
+  padding: 4px 10px; border-radius: 6px; font-size: .72rem; font-weight: 600;
+  cursor: pointer; border: none; transition: all .15s;
+}
+.ch-btn.view { background: rgba(79,142,247,.2); color: var(--accent2); }
+.ch-btn.view:hover { background: var(--accent2); color: #fff; }
+.ch-btn.dl { background: var(--border); color: var(--muted); }
+.ch-btn.dl:hover { background: var(--accent); color: #111; }
+
+/* Reminder banner */
+.reminder {
+  background: linear-gradient(135deg, #2a1f0d, #1f1a0a);
+  border: 1px solid #6b5020; border-radius: var(--radius);
+  padding: 20px 24px; margin-bottom: 24px;
+  display: flex; gap: 16px; align-items: flex-start;
+}
+.reminder-icon { font-size: 2rem; flex-shrink: 0; }
+.reminder-title { font-family: 'Baloo 2', cursive; font-size: 1rem; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
+.reminder-text { font-size: .82rem; color: #c8a96e; line-height: 1.6; }
+.reminder-list { margin-top: 8px; padding-left: 16px; }
+.reminder-list li { margin-bottom: 3px; }
+
+/* Empty state */
+.empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+.empty .ei { font-size: 3rem; margin-bottom: 12px; }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: #222; color: #fff; padding: 10px 20px; border-radius: 30px;
+  font-size: .85rem; z-index: 999; opacity: 0; transition: opacity .3s;
+  white-space: nowrap;
+}
+.toast.show { opacity: 1; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo">📚</div>
+  <div>
+    <div class="header-title">NCERT Library</div>
+    <div class="header-sub">Classes 6–9 · 2026 Curriculum</div>
+  </div>
+  <div class="header-right">
+    <div class="search-wrap">
+      <span class="si">🔍</span>
+      <input type="text" id="search" placeholder="Search books…" oninput="renderBooks()">
+    </div>
+  </div>
+</div>
+
+<div class="class-tabs" id="class-tabs"></div>
+<div class="content" id="content"></div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <div class="modal-title" id="modal-title"></div>
+      <div class="modal-sub" id="modal-sub"></div>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const BOOKS = {
+  class6: {
+    label: "Class 6",
+    books: [
+      {id:"maths",name:"Ganita Prakash",subject:"Mathematics",icon:"📐",lang:"en",code:"fegp1",chapters:10},
+      {id:"english",name:"Poorvi",subject:"English",icon:"📖",lang:"en",code:"fepr1",chapters:5},
+      {id:"hindi",name:"Malhar",subject:"Hindi",icon:"📚",lang:"hi",code:"fhml1",chapters:13},
+      {id:"science_en",name:"Curiosity",subject:"Science",icon:"🔬",lang:"en",code:"fecu1",chapters:12},
+      {id:"science_hi",name:"Jigyasa",subject:"Science",icon:"🔬",lang:"hi",code:"fhcu1",chapters:12},
+      {id:"sst_en",name:"Exploring Society",subject:"Social Science",icon:"🌍",lang:"en",code:"fees1",chapters:14},
+      {id:"sst_hi",name:"Samaj ka Aadhyan",subject:"Social Science",icon:"🌍",lang:"hi",code:"fhes1",chapters:14},
+      {id:"sanskrit",name:"Prabha",subject:"Sanskrit",icon:"🕉️",lang:"sa",code:"fsde1",chapters:16},
+    ]
+  },
+  class7: {
+    label: "Class 7",
+    books: [
+      {id:"maths_p1",name:"Ganita Prakash Part 1",subject:"Mathematics",icon:"📐",lang:"en",code:"gegp1",chapters:8},
+      {id:"maths_p2",name:"Ganita Prakash Part 2",subject:"Mathematics",icon:"📐",lang:"en",code:"gegp2",chapters:7},
+      {id:"english",name:"Poorvi",subject:"English",icon:"📖",lang:"en",code:"gepr1",chapters:5},
+      {id:"hindi",name:"Malhar",subject:"Hindi",icon:"📚",lang:"hi",code:"ghml1",chapters:10},
+      {id:"science_en",name:"Curiosity",subject:"Science",icon:"🔬",lang:"en",code:"gecu1",chapters:12},
+      {id:"science_hi",name:"Jigyasa",subject:"Science",icon:"🔬",lang:"hi",code:"ghcu1",chapters:12},
+      {id:"sst_en_p1",name:"Exploring Society Part 1",subject:"Social Science",icon:"🌍",lang:"en",code:"gees1",chapters:12},
+      {id:"sst_en_p2",name:"Exploring Society Part 2",subject:"Social Science",icon:"🌍",lang:"en",code:"gees2",chapters:8},
+      {id:"sst_hi_p1",name:"Samaj ka Aadhyan Part 1",subject:"Social Science",icon:"🌍",lang:"hi",code:"ghes1",chapters:12},
+    ]
+  },
+  class8: {
+    label: "Class 8",
+    books: [
+      {id:"maths_p1",name:"Ganita Prakash Part 1",subject:"Mathematics",icon:"📐",lang:"en",code:"hegp1",chapters:7},
+      {id:"maths_p2",name:"Ganita Prakash Part 2",subject:"Mathematics",icon:"📐",lang:"en",code:"hegp2",chapters:7},
+      {id:"english",name:"Poorvi",subject:"English",icon:"📖",lang:"en",code:"hepr1",chapters:5},
+      {id:"hindi",name:"Malhar",subject:"Hindi",icon:"📚",lang:"hi",code:"hhml1",chapters:10},
+      {id:"science_en",name:"Curiosity",subject:"Science",icon:"🔬",lang:"en",code:"hecu1",chapters:13},
+      {id:"science_hi",name:"Jigyasa",subject:"Science",icon:"🔬",lang:"hi",code:"hhcu1",chapters:13},
+      {id:"sst_en_p1",name:"Exploring Society Part 1",subject:"Social Science",icon:"🌍",lang:"en",code:"hees1",chapters:7},
+      {id:"sst_hi_p1",name:"Samaj ka Aadhyan Part 1",subject:"Social Science",icon:"🌍",lang:"hi",code:"hhes1",chapters:7},
+    ]
+  },
+  class9: {
+    label: "Class 9",
+    books: [
+      {id:"maths",name:"Ganita Manjari",subject:"Mathematics",icon:"📐",lang:"en",code:"iemh1",chapters:8},
+      {id:"english",name:"Kaveri",subject:"English",icon:"📖",lang:"en",code:"iebe1",chapters:9},
+      {id:"science_en",name:"Exploration",subject:"Science",icon:"🔬",lang:"en",code:"iesc1",chapters:13},
+      {id:"hindi",name:"Ganga",subject:"Hindi",icon:"📚",lang:"hi",code:"ihga1",chapters:12},
+    ]
+  }
+};
+
+const SUBJECT_COLORS = {
+  "Mathematics": "sub-maths",
+  "English": "sub-english",
+  "Hindi": "sub-hindi",
+  "Science": "sub-science",
+  "Social Science": "sub-sst",
+  "Sanskrit": "sub-sanskrit",
+};
+
+let activeClass = "class6";
+let activeFilter = "All";
+
+// Build chapter file names
+function chapterFiles(code, count) {
+  const files = [];
+  for (let i = 1; i <= count; i++) {
+    files.push(`${code}${String(i).padStart(2,'0')}.pdf`);
+  }
+  return files;
+}
+
+function pdfPath(cls, id, code, filename) {
+  return `books/${cls}/${id}/${code}/${filename}`;
+}
+
+function openPDF(path) {
+  window.open(path, '_blank');
+  toast('📖 Opening PDF…');
+}
+
+function downloadPDF(path, name) {
+  const a = document.createElement('a');
+  a.href = path;
+  a.download = name + '.pdf';
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  toast('⬇ Opening for download…');
+}
+
+function getSubjects() {
+  const data = BOOKS[activeClass];
+  const subjects = ['All', ...new Set(data.books.map(b => b.subject))];
+  return subjects;
+}
+
+function renderTabs() {
+  const tabs = document.getElementById('class-tabs');
+  tabs.innerHTML = Object.entries(BOOKS).map(([key, val]) =>
+    `<button class="tab ${key===activeClass?'active':''}" onclick="switchClass('${key}')">${val.label}</button>`
+  ).join('');
+}
+
+function switchClass(cls) {
+  activeClass = cls;
+  activeFilter = 'All';
+  renderTabs();
+  renderBooks();
+}
+
+function renderBooks() {
+  const query = document.getElementById('search').value.toLowerCase();
+  const data = BOOKS[activeClass];
+  const content = document.getElementById('content');
+
+  // Filter buttons
+  const subjects = getSubjects();
+  const filterHtml = `<div class="filter-row">${subjects.map(s =>
+    `<button class="filter-btn ${s===activeFilter?'active':''}" onclick="setFilter('${s}')">${s}</button>`
+  ).join('')}</div>`;
+
+  // Reminder (show only for class9 or when on class10)
+  let reminder = '';
+  if (activeClass === 'class9') {
+    reminder = `
+    <div class="reminder">
+      <div class="reminder-icon">📌</div>
+      <div>
+        <div class="reminder-title">Books to Add Later</div>
+        <div class="reminder-text">
+          Remember to upload these when available:
+          <ul class="reminder-list">
+            <li>Class 9 — Sharada (Sanskrit), remaining Social Science books</li>
+            <li>Class 10 — All books (available next year 2027)</li>
+            <li>Class 7 & 8 — Missing Sanskrit, SST Part 2 (Hindi)</li>
+          </ul>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // Books
+  let books = data.books.filter(b => {
+    const matchFilter = activeFilter === 'All' || b.subject === activeFilter;
+    const matchSearch = !query || b.name.toLowerCase().includes(query) || b.subject.toLowerCase().includes(query);
+    return matchFilter && matchSearch;
+  });
+
+  const booksHtml = books.length === 0
+    ? `<div class="empty"><div class="ei">🔍</div><div>No books found</div></div>`
+    : `<div class="book-grid">${books.map(b => bookCard(b)).join('')}</div>`;
+
+  content.innerHTML = filterHtml + reminder + booksHtml;
+}
+
+function bookCard(b) {
+  const colorClass = SUBJECT_COLORS[b.subject] || 'sub-science';
+  const langBadge = b.lang === 'en' ? 'badge-en' : b.lang === 'hi' ? 'badge-hi' : 'badge-sa';
+  const langText = b.lang === 'en' ? 'English' : b.lang === 'hi' ? 'Hindi' : 'Sanskrit';
+  return `
+  <div class="book-card" onclick="openBook('${activeClass}','${b.id}','${b.code}','${b.name}','${b.subject}',${b.chapters})">
+    <div class="book-card-top">
+      <div class="book-icon ${colorClass}">${b.icon}</div>
+      <div>
+        <div class="book-name">${b.name}</div>
+        <div class="book-subject">${b.subject}</div>
+        <span class="lang-badge ${langBadge}">${langText}</span>
+      </div>
+    </div>
+    <div class="book-card-bottom">
+      <div class="ch-count">${b.chapters} chapters</div>
+      <div class="card-btns">
+        <button class="btn-view" onclick="event.stopPropagation();openBook('${activeClass}','${b.id}','${b.code}','${b.name}','${b.subject}',${b.chapters})">View</button>
+        <button class="btn-dl" onclick="event.stopPropagation();downloadPDF(pdfPath('${activeClass}','${b.id}','${b.code}','full.pdf'),'${b.name}')">⬇</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function setFilter(f) {
+  activeFilter = f;
+  renderBooks();
+}
+
+function openBook(cls, id, code, name, subject, chCount) {
+  document.getElementById('modal-title').textContent = name;
+  document.getElementById('modal-sub').textContent = `${BOOKS[cls].label} · ${subject}`;
+  document.getElementById('modal').classList.add('open');
+
+  const chapters = chapterFiles(code, chCount);
+  const fullPath = pdfPath(cls, id, code, 'full.pdf');
+
+  let html = `
+    <div class="ch-section-title">📘 Full Book</div>
+    <button class="full-book-btn" onclick="openPDF('${fullPath}')">
+      <span class="fb-icon">📄</span>
+      <span class="fb-text">
+        <div class="fb-title">${name}</div>
+        <div class="fb-sub">Complete book · All chapters</div>
+      </span>
+      <span class="fb-dl" onclick="event.stopPropagation();downloadPDF('${fullPath}','${name}')">⬇</span>
+    </button>
+    <div class="ch-section-title" style="margin-top:20px">📑 Chapters</div>
+  `;
+
+  chapters.forEach((ch, i) => {
+    const chPath = pdfPath(cls, id, code, ch);
+    html += `
+    <div class="ch-item">
+      <div class="ch-num">${i+1}</div>
+      <div class="ch-name">Chapter ${i+1}</div>
+      <div class="ch-actions">
+        <button class="ch-btn view" onclick="openPDF('${chPath}')">View</button>
+        <button class="ch-btn dl" onclick="downloadPDF('${chPath}','${name} Ch${i+1}')">⬇</button>
+      </div>
+    </div>`;
+  });
+
+  document.getElementById('modal-body').innerHTML = html;
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modal')) {
+    document.getElementById('modal').classList.remove('open');
+  }
+}
+
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Init
+renderTabs();
+renderBooks();
+</script>
+</body>
+</html>
